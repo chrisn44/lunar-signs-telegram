@@ -1,25 +1,31 @@
-from sqlalchemy import select
-from bot_models import User
-from bot_middleware_ratelimit import RateLimiter
 from bot_database import get_db
+from bot_middleware_ratelimit import RateLimiter
 from datetime import datetime
 
 rate_limiter = RateLimiter()
 
 async def get_user(db, telegram_id: int):
-    result = await db.execute(select(User).where(User.telegram_id == telegram_id))
-    return result.scalar_one_or_none()
+    """Get user by telegram ID"""
+    return db.get_user(telegram_id)
 
 async def check_rate_limit(user_id: int, action: str = "default", limit: int = None) -> bool:
+    """Check if user is within rate limits"""
     if await is_premium(user_id):
         return True
     return await rate_limiter.check_limit(user_id, action)
 
 async def is_premium(user_id: int) -> bool:
-    db_gen = get_db()
-    db = await db_gen.__anext__()
-    user = await get_user(db, user_id)
-    await db_gen.aclose()
-    if user and user.is_premium and user.premium_until and user.premium_until > datetime.utcnow():
-        return True
+    """Check if user has premium access"""
+    db = await get_db()
+    user_data = db.get_user(user_id)
+    
+    if user_data and user_data.get('is_premium'):
+        premium_until = user_data.get('premium_until')
+        if premium_until:
+            # Parse ISO format date
+            if isinstance(premium_until, str):
+                from dateutil import parser
+                premium_date = parser.parse(premium_until)
+                if premium_date > datetime.now():
+                    return True
     return False
