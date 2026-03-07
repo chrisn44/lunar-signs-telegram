@@ -3,12 +3,16 @@ from telegram.ext import ContextTypes
 from datetime import datetime, timedelta
 from bot_database import get_db
 from bot_utils_helpers import is_premium
+import logging
 
 # Premium prices in Telegram Stars
 PREMIUM_WEEK_STARS = 50
 PREMIUM_MONTH_STARS = 150
 
+logger = logging.getLogger(__name__)
+
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show premium information."""
     text = (
         "🌟 **LunarSignsBot Premium**\n\n"
         "Unlock the full cosmic experience:\n"
@@ -25,126 +29,178 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_markdown(text)
 
 async def buy_week(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Send invoice for 1-week premium."""
     await send_invoice(update, "1-Week Premium", "premium_week", PREMIUM_WEEK_STARS)
 
 async def buy_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Send invoice for 1-month premium."""
     await send_invoice(update, "1-Month Premium", "premium_month", PREMIUM_MONTH_STARS)
 
 async def send_invoice(update: Update, title: str, payload: str, stars: int):
+    """Helper to send a Telegram Stars invoice."""
     try:
         chat_id = update.effective_chat.id
         description = f"Unlock all premium features for {title.lower()}"
+        # Currency must be XTR for Telegram Stars
         currency = "XTR"
+        # Amount in smallest units: stars * 100
         prices = [LabeledPrice(title, stars * 100)]
         
         await update.message.reply_invoice(
             title=title,
             description=description,
             payload=payload,
-            provider_token="",
+            provider_token="",  # Must be empty for Stars
             currency=currency,
             prices=prices,
             start_parameter="premium-access"
         )
+        logger.info(f"Invoice sent to user {update.effective_user.id} for {title}")
     except Exception as e:
-        print(f"Error sending invoice: {e}")
-        await update.message.reply_text("Sorry, unable to process payment at this time.")
+        logger.error(f"Error sending invoice: {e}")
+        await update.message.reply_text("Sorry, unable to process payment at this time. Please try again later.")
 
 async def pre_checkout(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle pre-checkout query (verify payload)."""
     query = update.pre_checkout_query
+    logger.info(f"Pre-checkout query received: {query.invoice_payload}")
+    
+    # Validate the payload
     if query.invoice_payload not in ["premium_week", "premium_month"]:
-        await query.answer(ok=False, error_message="Invalid purchase")
+        await query.answer(ok=False, error_message="Invalid purchase. Please try again.")
         return
-    await query.answer(ok=True)
+    
+    # You can add additional checks here (e.g., user already premium?)
+    await query.answer(ok=True)  # Confirm the payment
 
 async def successful_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle successful payment - grant premium access."""
     try:
         user_id = update.effective_user.id
         payment = update.message.successful_payment
-        stars_spent = payment.total_amount // 100
+        stars_spent = payment.total_amount // 100  # Convert back from cents
         payload = payment.invoice_payload
+        payment_id = payment.provider_payment_charge_id  # Unique payment ID
+
+        logger.info(f"Successful payment from user {user_id}: {stars_spent} stars for {payload}")
 
         db = await get_db()
         user = db.get_user(user_id)
+
+        if not user:
+            # Should not happen, but create user if missing
+            user = db.create_user(user_id, update.effective_user.username)
 
         now = datetime.now()
         if payload == "premium_week":
             expiry = now + timedelta(days=7)
             item = "week"
-        else:
+        elif payload == "premium_month":
             expiry = now + timedelta(days=30)
             item = "month"
+        else:
+            # Fallback (should not happen)
+            expiry = now + timedelta(days=7)
+            item = "unknown"
 
         # Update user premium status
         db.update_user(
-            user_id, 
-            is_premium=True, 
+            user_id,
+            is_premium=True,
             premium_until=expiry.isoformat()
         )
 
         # Record payment
         db.add_payment(
             user_id=user_id,
-            payment_id=payment.provider_payment_charge_id,
+            payment_id=payment_id,
             stars=stars_spent,
             item=item
         )
 
+        # Confirm to user
         await update.message.reply_text(
-            f"✅ Thank you! You now have premium access until {expiry.strftime('%Y-%m-%d')}."
+            f"✅ **Thank you for your purchase!**\n\n"
+            f"You now have premium access until **{expiry.strftime('%Y-%m-%d')}**.\n"
+            f"Enjoy all the premium features! ✨",
+            parse_mode='Markdown'
         )
+
+        # Optionally, notify admin
+        # if ADMIN_IDS:
+        #     for admin_id in ADMIN_IDS:
+        #         await context.bot.send_message(admin_id, f"New premium purchase: user {user_id} for {item}")
+
     except Exception as e:
-        print(f"Error processing payment: {e}")
-        await update.message.reply_text("Thank you for your purchase! Your premium access will be activated shortly.")
+        logger.error(f"Error processing successful payment: {e}")
+        await update.message.reply_text(
+            "Thank you for your payment! There was a small issue activating your premium. "
+            "Please contact support with your payment ID."
+        )
 
 async def compatibility(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Premium feature: check compatibility between two signs."""
     try:
         user_id = update.effective_user.id
         if not await is_premium(user_id):
             await update.message.reply_markdown(
-                "💞 Compatibility is a **premium feature**. Upgrade to see how signs match!"
+                "💞 Compatibility is a **premium feature**. Upgrade to see how signs match!\n"
+                "Use /buy_week or /buy_month to get premium."
             )
             return
 
         args = context.args
         if len(args) < 2:
-            await update.message.reply_text("Usage: /compatibility <sign1> <sign2>\nExample: /compatibility aries libra")
+            await update.message.reply_text(
+                "Usage: /compatibility <sign1> <sign2>\n"
+                "Example: /compatibility aries libra"
+            )
             return
 
         sign1, sign2 = args[0].lower(), args[1].lower()
         
-        # Simple compatibility calculation
-        compatibility_scores = {
-            ("aries", "leo"): 95, ("aries", "sagittarius"): 90, ("aries", "gemini"): 85,
-            ("taurus", "virgo"): 95, ("taurus", "capricorn"): 90, ("taurus", "cancer"): 85,
-            ("gemini", "libra"): 95, ("gemini", "aquarius"): 90, ("gemini", "aries"): 85,
-            ("cancer", "scorpio"): 95, ("cancer", "pisces"): 90, ("cancer", "taurus"): 85,
-            ("leo", "sagittarius"): 95, ("leo", "aries"): 90, ("leo", "libra"): 85,
-            ("virgo", "capricorn"): 95, ("virgo", "taurus"): 90, ("virgo", "scorpio"): 85,
-            ("libra", "aquarius"): 95, ("libra", "gemini"): 90, ("libra", "leo"): 85,
-            ("scorpio", "pisces"): 95, ("scorpio", "cancer"): 90, ("scorpio", "virgo"): 85,
-            ("sagittarius", "aries"): 95, ("sagittarius", "leo"): 90, ("sagittarius", "aquarius"): 85,
-            ("capricorn", "taurus"): 95, ("capricorn", "virgo"): 90, ("capricorn", "scorpio"): 85,
-            ("aquarius", "gemini"): 95, ("aquarius", "libra"): 90, ("aquarius", "sagittarius"): 85,
-            ("pisces", "cancer"): 95, ("pisces", "scorpio"): 90, ("pisces", "taurus"): 85,
+        # Simple compatibility calculation based on element
+        elements = {
+            "aries": "fire", "leo": "fire", "sagittarius": "fire",
+            "taurus": "earth", "virgo": "earth", "capricorn": "earth",
+            "gemini": "air", "libra": "air", "aquarius": "air",
+            "cancer": "water", "scorpio": "water", "pisces": "water"
         }
         
-        # Default score
-        score = compatibility_scores.get((sign1, sign2), 
-                compatibility_scores.get((sign2, sign1), 75))
+        el1 = elements.get(sign1, "unknown")
+        el2 = elements.get(sign2, "unknown")
         
-        if score > 85:
-            comment = "🌟 An excellent match! You complement each other perfectly."
-        elif score > 70:
-            comment = "✨ Good potential! With effort, this can be a great match."
+        # Compatibility by element
+        if el1 == el2:
+            base_score = 85
+            comment = "You share the same element – great harmony and understanding!"
+        elif (el1 == "fire" and el2 == "air") or (el1 == "air" and el2 == "fire"):
+            base_score = 90
+            comment = "Fire and air – passion meets intellect! A dynamic duo."
+        elif (el1 == "earth" and el2 == "water") or (el1 == "water" and el2 == "earth"):
+            base_score = 88
+            comment = "Earth and water – nurturing and stable. A grounded connection."
+        elif (el1 == "fire" and el2 == "earth") or (el1 == "earth" and el2 == "fire"):
+            base_score = 65
+            comment = "Fire and earth – can be challenging but growth comes from effort."
+        elif (el1 == "air" and el2 == "water") or (el1 == "water" and el2 == "air"):
+            base_score = 70
+            comment = "Air and water – emotions meet thoughts. Requires communication."
         else:
-            comment = "🌙 Interesting dynamic. You'll need to work on understanding each other."
+            base_score = 75
+            comment = "An interesting mix – with mutual respect, you can create magic."
+        
+        # Add a little randomness (±5) for variety
+        import random
+        score = base_score + random.randint(-5, 5)
+        score = max(0, min(100, score))
         
         await update.message.reply_markdown(
-            f"**{sign1.title()} + {sign2.title()} Compatibility**\n\n"
+            f"**💞 Compatibility: {sign1.title()} + {sign2.title()}**\n\n"
             f"Score: **{score}%**\n"
-            f"{comment}"
+            f"{comment}\n\n"
+            f"_For a detailed analysis, check back soon!_"
         )
     except Exception as e:
-        print(f"Error in compatibility: {e}")
+        logger.error(f"Error in compatibility: {e}")
         await update.message.reply_text("Sorry, unable to calculate compatibility at this time.")
