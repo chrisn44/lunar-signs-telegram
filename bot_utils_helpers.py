@@ -5,15 +5,19 @@ import dateutil.parser
 
 rate_limiter = RateLimiter()
 
-async def get_user(db, telegram_id: int):
-    """Get user by telegram ID (kept for backward compatibility)"""
-    return db.get_user(telegram_id)
-
 async def check_rate_limit(user_id: int, action: str = "default", limit: int = None) -> bool:
     """Check if user is within rate limits"""
-    if await is_premium(user_id):
+    try:
+        # Premium users bypass rate limits
+        if await is_premium(user_id):
+            return True
+        
+        # Check rate limit
+        return await rate_limiter.check_limit(user_id, action)
+    except Exception as e:
+        print(f"Rate limit check error: {e}")
+        # If rate limit check fails, allow the request
         return True
-    return await rate_limiter.check_limit(user_id, action)
 
 async def is_premium(user_id: int) -> bool:
     """Check if user has premium access"""
