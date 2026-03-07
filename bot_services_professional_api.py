@@ -1,7 +1,7 @@
 import httpx
 import os
-import random
-from typing import Optional, Dict, List
+import json
+from typing import Optional, Dict, List, Any
 from datetime import datetime
 
 class ProfessionalAstrologyAPI:
@@ -20,13 +20,14 @@ class ProfessionalAstrologyAPI:
             "Content-Type": "application/json"
         }
     
-    async def get_daily_horoscope(self, sign: str) -> Optional[Dict]:
+    async def get_daily_horoscope(self, sign: str) -> Optional[str]:
         """
-        Get REAL horoscope from Zodii API.
+        Get today's horoscope text from Zodii API.
         Endpoint: GET /api/horoscope/{sign}
+        Returns: String containing the horoscope text
         """
         if not self.token:
-            print("ZODII_TOKEN not set")
+            print("❌ ZODII_TOKEN not set in environment variables")
             return None
         
         # Check cache for today
@@ -34,7 +35,7 @@ class ProfessionalAstrologyAPI:
         cache_key = f"horoscope_{sign}_{today}"
         
         if cache_key in self.cache:
-            print(f"Using cached horoscope for {sign}")
+            print(f"✅ Using cached horoscope for {sign}")
             return self.cache[cache_key]
         
         # Call API
@@ -42,7 +43,7 @@ class ProfessionalAstrologyAPI:
         
         async with httpx.AsyncClient() as client:
             try:
-                print(f"Calling Zodii API: {url}")
+                print(f"📡 Calling Zodii API: {url}")
                 response = await client.get(
                     url,
                     headers=self._get_auth_headers(),
@@ -51,16 +52,61 @@ class ProfessionalAstrologyAPI:
                 
                 if response.status_code == 200:
                     data = response.json()
+                    
+                    # Handle different response formats
+                    if isinstance(data, str):
+                        # Direct string response
+                        horoscope_text = data
+                    elif isinstance(data, dict):
+                        # Try common field names for horoscope text
+                        horoscope_text = (data.get('horoscope') or 
+                                        data.get('description') or 
+                                        data.get('message') or 
+                                        data.get('text') or
+                                        json.dumps(data))
+                    else:
+                        horoscope_text = str(data)
+                    
+                    print(f"✅ Received horoscope for {sign} (length: {len(horoscope_text)})")
+                    
                     # Cache the result
-                    self.cache[cache_key] = data
-                    return data
+                    self.cache[cache_key] = horoscope_text
+                    return horoscope_text
+                    
+                elif response.status_code == 401:
+                    print(f"❌ Unauthorized - Check your ZODII_TOKEN")
+                    return None
+                elif response.status_code == 404:
+                    print(f"❌ Endpoint not found: {url}")
+                    return None
                 else:
-                    print(f"Zodii API error: {response.status_code}")
-                    print(f"Response: {response.text}")
+                    print(f"❌ Zodii API error: {response.status_code}")
+                    print(f"Response: {response.text[:200]}")
                     return None
                     
             except Exception as e:
-                print(f"Error calling Zodii API: {e}")
+                print(f"❌ Error calling Zodii API: {e}")
+                return None
+    
+    async def get_zodiac_info(self, sign: str) -> Optional[Dict]:
+        """
+        Get detailed zodiac sign information
+        Endpoint: GET /api/zodiac/{sign_name}
+        """
+        url = f"{self.base_url}/api/zodiac/{sign.lower()}"
+        
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get(
+                    url,
+                    headers=self._get_auth_headers(),
+                    timeout=10.0
+                )
+                if response.status_code == 200:
+                    return response.json()
+                return None
+            except Exception as e:
+                print(f"❌ Error fetching zodiac info: {e}")
                 return None
     
     async def get_tarot_cards(self) -> Optional[List]:
@@ -81,7 +127,7 @@ class ProfessionalAstrologyAPI:
                     return response.json()
                 return None
             except Exception as e:
-                print(f"Error fetching tarot cards: {e}")
+                print(f"❌ Error fetching tarot cards: {e}")
                 return None
     
     async def draw_tarot_cards(self, count: int = 1, seed: str = None) -> Optional[List]:
@@ -107,31 +153,7 @@ class ProfessionalAstrologyAPI:
                     return response.json()
                 return None
             except Exception as e:
-                print(f"Error drawing tarot cards: {e}")
-                return None
-    
-    async def get_compatibility(self, person1: Dict, person2: Dict) -> Optional[Dict]:
-        """
-        Check compatibility between two people
-        Endpoint: POST /api/compatibility
-        """
-        url = f"{self.base_url}/api/compatibility"
-        
-        payload = [person1, person2]
-        
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.post(
-                    url,
-                    headers=self._get_auth_headers(),
-                    json=payload,
-                    timeout=10.0
-                )
-                if response.status_code == 200:
-                    return response.json()
-                return None
-            except Exception as e:
-                print(f"Error checking compatibility: {e}")
+                print(f"❌ Error drawing tarot cards: {e}")
                 return None
 
 # Singleton instance
