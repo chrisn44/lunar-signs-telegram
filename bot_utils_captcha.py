@@ -4,7 +4,7 @@ from telegram.ext import ContextTypes
 from functools import wraps
 from bot_database import get_db
 
-# Store captcha challenges in memory
+# Store captcha challenges in memory (exported for reset function)
 captcha_store = {}
 
 def generate_captcha():
@@ -189,3 +189,22 @@ async def handle_captcha_answer(update: Update, context: ContextTypes.DEFAULT_TY
         import traceback
         traceback.print_exc()
         await query.edit_message_text("❌ Error processing captcha. Please try /start again.")
+
+async def reset_captcha(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Reset captcha for user if stuck."""
+    try:
+        user_id = update.effective_user.id
+        if user_id in captcha_store:
+            del captcha_store[user_id]
+            # Also clear from user_data
+            if 'captcha_input' in context.user_data:
+                context.user_data['captcha_input'].pop(user_id, None)
+            await update.message.reply_text("✅ Captcha reset. Please try /start again.")
+        else:
+            # Still clear from user_data
+            if 'captcha_input' in context.user_data:
+                context.user_data['captcha_input'].pop(user_id, None)
+            await update.message.reply_text("No active captcha found. You can use /start normally.")
+    except Exception as e:
+        print(f"Error in reset_captcha: {e}")
+        await update.message.reply_text("Error resetting captcha. Please try again.")
