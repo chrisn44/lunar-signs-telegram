@@ -10,13 +10,6 @@ A Telegram bot that provides daily horoscopes and tarot readings. Free tier incl
 - **Anti‑spam**: Rate limiting + captcha for new users
 - **Admin panel**: Broadcast messages, view stats
 
-## Deployment
-
-1. Create a bot with [@BotFather](https://t.me/BotFather) – name it **LunarSignsBot**.
-2. Copy `.env.example` to `.env` and fill in your `BOT_TOKEN`.
-3. Run locally: `docker-compose -f docker_compose.yml up --build`
-4. Deploy on Railway: connect your GitHub repo and set the environment variables.
-
 ## Commands
 
 | Command | Description | Access |
@@ -41,5 +34,16 @@ A Telegram bot that provides daily horoscopes and tarot readings. Free tier incl
 - Compatibility checker
 - Priority support
 - No ads
+
+## Technologies Used
+
+- Python 3.11
+- python-telegram-bot v20.7
+- PostgreSQL (SQLAlchemy async)
+- Redis for rate limiting
+- Docker for containerization
+- Telegram Stars for payments
+
+---
 
 Enjoy the stars! ✨
