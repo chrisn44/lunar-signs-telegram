@@ -3,33 +3,36 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from bot_services_professional_api import get_api
 from bot_utils_helpers import is_premium
+import asyncio
 
 api = get_api()
 
 async def daily_tarot(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Free: one random card with real meaning."""
     try:
-        card_data = await api.get_random_tarot_card()
-        if not card_data:
+        # Draw one random card from Zodii API
+        cards = await api.draw_tarot_cards(count=1)
+        
+        if not cards or len(cards) == 0:
             await update.message.reply_text("The cards are shuffling... please try again.")
             return
         
-        card_name = list(card_data.keys())[0]
-        card_info = card_data[card_name]
+        card = cards[0]  # First card from the draw
         
-        # Format card name nicely
-        display_name = card_name.replace("_", " ").title()
+        # Format card info
+        card_name = card.get('name', 'Unknown')
+        suit = card.get('suit', '')
+        rank = card.get('rank', '')
         
-        # Randomly decide upright/reversed (real decks have both)
-        reversed = random.random() < 0.3
-        orientation = "↕️ Reversed" if reversed else "⬆️ Upright"
-        meaning = card_info.get("reversed" if reversed else "upright", "")
+        # Get keywords as string
+        keywords = card.get('keywords', [])
+        keywords_str = ', '.join(keywords) if keywords else ''
         
         await update.message.reply_markdown(
-            f"🃏 **Your Real Tarot Card: {display_name}**\n"
-            f"{orientation}\n\n"
-            f"{meaning}\n\n"
-            f"_From the authentic Rider-Waite deck_"
+            f"🃏 **Your Real Tarot Card: {card_name}**\n"
+            f"{suit} – {rank}\n\n"
+            f"**Keywords:** {keywords_str}\n\n"
+            f"_From the authentic Rider-Waite deck via Zodii API_"
         )
     except Exception as e:
         print(f"Error in daily_tarot: {e}")
@@ -49,28 +52,24 @@ async def three_card_spread(update: Update, context: ContextTypes.DEFAULT_TYPE):
         question = " ".join(context.args) if context.args else "General guidance"
         
         # Draw three random cards
-        cards = []
-        for _ in range(3):
-            card_data = await api.get_random_tarot_card()
-            if card_data:
-                cards.append(card_data)
-            await asyncio.sleep(0.5)  # Avoid rate limits
+        cards = await api.draw_tarot_cards(count=3)
         
-        if len(cards) < 3:
+        if not cards or len(cards) < 3:
             await update.message.reply_text("Unable to draw all cards. Please try again.")
             return
         
         positions = ["Past", "Present", "Future"]
         text = f"**🔮 Three‑Card Spread**\n*Question:* {question}\n\n"
         
-        for i, card in enumerate(cards):
-            card_name = list(card.keys())[0]
-            card_info = card[card_name]
-            display_name = card_name.replace("_", " ").title()
-            reversed = random.random() < 0.3
-            orientation = "↕️ Reversed" if reversed else "⬆️ Upright"
-            meaning = card_info.get("reversed" if reversed else "upright", "")
-            text += f"**{positions[i]}:** {display_name} {orientation}\n{meaning}\n\n"
+        for i, card in enumerate(cards[:3]):
+            card_name = card.get('name', 'Unknown')
+            suit = card.get('suit', '')
+            rank = card.get('rank', '')
+            keywords = card.get('keywords', [])
+            keywords_str = ', '.join(keywords) if keywords else ''
+            
+            text += f"**{positions[i]}:** {card_name} ({suit} {rank})\n"
+            text += f"_{keywords_str}_\n\n"
         
         await update.message.reply_markdown(text)
     except Exception as e:
@@ -79,6 +78,44 @@ async def three_card_spread(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def celtic_cross(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Premium: full 10-card Celtic Cross."""
-    # Similar to three-card but with 10 cards and positions
-    # You can implement similarly
-    pass
+    try:
+        user_id = update.effective_user.id
+        if not await is_premium(user_id):
+            await update.message.reply_markdown(
+                "🔮 This is a **premium feature**.\n"
+                "Upgrade with /buyweek or /buymonth to unlock."
+            )
+            return
+
+        question = " ".join(context.args) if context.args else "General guidance"
+        
+        # Draw ten cards for Celtic Cross
+        cards = await api.draw_tarot_cards(count=10)
+        
+        if not cards or len(cards) < 10:
+            await update.message.reply_text("Unable to draw all cards. Please try again.")
+            return
+        
+        positions = [
+            "Present", "Challenge", "Past", "Future", "Above (Conscious)",
+            "Below (Subconscious)", "Advice", "External", "Hopes/Fears", "Outcome"
+        ]
+        
+        text = f"**🔮 Celtic Cross**\n*Question:* {question}\n\n"
+        for i, card in enumerate(cards[:10]):
+            card_name = card.get('name', 'Unknown')
+            suit = card.get('suit', '')
+            keywords = card.get('keywords', [])
+            keywords_str = ', '.join(keywords[:2]) if keywords else ''
+            
+            text += f"**{positions[i]}:** {card_name}\n"
+            if i < 5:  # Show more detail for first few positions
+                text += f"_{keywords_str}_\n"
+            text += "\n"
+        
+        text += "_Full interpretations available in the complete version._"
+        
+        await update.message.reply_markdown(text)
+    except Exception as e:
+        print(f"Error in celtic_cross: {e}")
+        await update.message.reply_text("Unable to generate spread. Please try again.")
