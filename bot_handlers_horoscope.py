@@ -42,7 +42,6 @@ async def get_horoscope(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     except Exception as e:
         print(f"Error in get_horoscope: {e}")
-        # Even if everything fails, show a nice message
         await update.message.reply_text(
             "✨ The stars are aligned in your favor today! "
             "Please try again in a moment for your detailed horoscope."
