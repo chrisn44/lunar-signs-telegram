@@ -5,6 +5,7 @@ from bot_database import get_db
 from bot_utils_helpers import is_premium
 import logging
 import random
+import traceback
 
 # Premium prices in Telegram Stars
 PREMIUM_WEEK_STARS = 50
@@ -14,67 +15,81 @@ logger = logging.getLogger(__name__)
 
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show premium information."""
-    text = (
-        "🌟 **LunarSignsBot Premium**\n\n"
-        "Unlock the full cosmic experience:\n"
-        "• Detailed daily horoscopes (love, career, health)\n"
-        "• Extended monthly forecast\n"
-        "• Unlimited tarot spreads (3‑card, Celtic Cross)\n"
-        "• Compatibility checker\n"
-        "• Priority support & no ads\n\n"
-        f"**Prices**\n"
-        f"• 1 week: {PREMIUM_WEEK_STARS} ⭐\n"
-        f"• 1 month: {PREMIUM_MONTH_STARS} ⭐\n\n"
-        "Use /buy_week or /buy_month to purchase."
-    )
-    await update.message.reply_markdown(text)
+    try:
+        text = (
+            "🌟 **LunarSignsBot Premium**\n\n"
+            "Unlock the full cosmic experience:\n"
+            "• Detailed daily horoscopes (love, career, health)\n"
+            "• Extended monthly forecast\n"
+            "• Unlimited tarot spreads (3‑card, Celtic Cross)\n"
+            "• Compatibility checker\n"
+            "• Priority support & no ads\n\n"
+            f"**Prices**\n"
+            f"• 1 week: {PREMIUM_WEEK_STARS} ⭐\n"
+            f"• 1 month: {PREMIUM_MONTH_STARS} ⭐\n\n"
+            "Use /buyweek or /buymonth to purchase."
+        )
+        await update.message.reply_markdown(text)
+        logger.info(f"Premium info sent to user {update.effective_user.id}")
+    except Exception as e:
+        logger.error(f"Error in info: {e}")
+        await update.message.reply_text("Sorry, unable to show premium info.")
 
 async def buy_week(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send invoice for 1-week premium."""
-    await send_invoice(update, "1-Week Premium", "premium_week", PREMIUM_WEEK_STARS)
+    logger.info(f"Buy week command received from user {update.effective_user.id}")
+    await send_invoice(update, context, "1-Week Premium", "premium_week", PREMIUM_WEEK_STARS)
 
 async def buy_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send invoice for 1-month premium."""
-    await send_invoice(update, "1-Month Premium", "premium_month", PREMIUM_MONTH_STARS)
+    logger.info(f"Buy month command received from user {update.effective_user.id}")
+    await send_invoice(update, context, "1-Month Premium", "premium_month", PREMIUM_MONTH_STARS)
 
-async def send_invoice(update: Update, title: str, payload: str, stars: int):
+async def send_invoice(update: Update, context: ContextTypes.DEFAULT_TYPE, title: str, payload: str, stars: int):
     """Helper to send a Telegram Stars invoice."""
     try:
         chat_id = update.effective_chat.id
-        description = f"Unlock all premium features for {title.lower()}"
+        user_id = update.effective_user.id
+        
+        logger.info(f"Preparing invoice for user {user_id}: {title} for {stars} stars")
+        
         # Currency must be XTR for Telegram Stars
         currency = "XTR"
         # Amount in smallest units: stars * 100
         prices = [LabeledPrice(title, stars * 100)]
         
-        # Send the invoice
+        # Send the invoice using context.bot
         await context.bot.send_invoice(
             chat_id=chat_id,
             title=title,
-            description=description,
+            description=f"Unlock all premium features for {title.lower()}",
             payload=payload,
             provider_token="",  # Must be empty for Stars
             currency=currency,
             prices=prices,
             start_parameter="premium-access"
         )
-        logger.info(f"Invoice sent to user {update.effective_user.id} for {title}")
+        logger.info(f"Invoice sent successfully to user {user_id}")
+        
     except Exception as e:
         logger.error(f"Error sending invoice: {e}")
+        logger.error(traceback.format_exc())
         await update.message.reply_text("Sorry, unable to process payment at this time. Please try again later.")
 
 async def pre_checkout(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle pre-checkout query (verify payload)."""
     query = update.pre_checkout_query
-    logger.info(f"Pre-checkout query received: {query.invoice_payload}")
+    logger.info(f"Pre-checkout query received: {query.invoice_payload} from user {query.from_user.id}")
     
     # Validate the payload
     if query.invoice_payload not in ["premium_week", "premium_month"]:
+        logger.warning(f"Invalid payload: {query.invoice_payload}")
         await query.answer(ok=False, error_message="Invalid purchase. Please try again.")
         return
     
     # You can add additional checks here (e.g., user already premium?)
     await query.answer(ok=True)  # Confirm the payment
+    logger.info(f"Pre-checkout approved for user {query.from_user.id}")
 
 async def successful_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle successful payment - grant premium access."""
@@ -85,7 +100,7 @@ async def successful_payment(update: Update, context: ContextTypes.DEFAULT_TYPE)
         payload = payment.invoice_payload
         payment_id = payment.provider_payment_charge_id  # Unique payment ID
 
-        logger.info(f"Successful payment from user {user_id}: {stars_spent} stars for {payload}")
+        logger.info(f"✅ Successful payment from user {user_id}: {stars_spent} stars for {payload}")
 
         db = await get_db()
         user = db.get_user(user_id)
@@ -128,9 +143,12 @@ async def successful_payment(update: Update, context: ContextTypes.DEFAULT_TYPE)
             f"Enjoy all the premium features! ✨",
             parse_mode='Markdown'
         )
+        
+        logger.info(f"Premium activated for user {user_id} until {expiry}")
 
     except Exception as e:
         logger.error(f"Error processing successful payment: {e}")
+        logger.error(traceback.format_exc())
         await update.message.reply_text(
             "Thank you for your payment! There was a small issue activating your premium. "
             "Please contact support with your payment ID."
@@ -143,7 +161,7 @@ async def compatibility(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not await is_premium(user_id):
             await update.message.reply_markdown(
                 "💞 Compatibility is a **premium feature**. Upgrade to see how signs match!\n"
-                "Use /buy_week or /buy_month to get premium."
+                "Use /buyweek or /buymonth to get premium."
             )
             return
 
@@ -220,4 +238,4 @@ async def my_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await update.message.reply_text("✅ You have premium access (no expiry set).")
     else:
-        await update.message.reply_text("❌ You don't have premium. Use /buy_week or /buy_month to upgrade!")
+        await update.message.reply_text("❌ You don't have premium. Use /buyweek or /buymonth to upgrade!")
