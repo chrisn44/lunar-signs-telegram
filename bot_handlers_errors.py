@@ -10,15 +10,18 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Log the error with traceback
     logger.error(f"Exception while handling an update: {context.error}")
     
-    # Print full traceback to console
+    # Print full traceback to console (visible in Railway logs)
+    print("=" * 50)
+    print("ERROR OCCURRED:")
     traceback.print_exc()
+    print("=" * 50)
     
-    # Try to send error details to the user (for debugging)
+    # Send user-friendly message
     try:
         if update and update.effective_message:
-            error_msg = str(context.error)
             await update.effective_message.reply_text(
-                f"❌ Error: {error_msg}\n\nPlease report this to the admin."
+                "🌙 An unexpected error occurred. Our team has been notified.\n"
+                "Please try again in a moment."
             )
     except:
         pass
