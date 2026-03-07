@@ -19,27 +19,29 @@ async def get_horoscope(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         sign_num = user.get('sign')
         sign_name = get_sign_name(sign_num)
-
-        # Check premium for detailed version (but both get real data)
-        premium = await is_premium(user_id)
         
         # Call real API
         horoscope_data = await api.get_daily_horoscope(sign_name)
         
         if not horoscope_data:
-            # If API fails, use fallback (your existing generator)
-            await update.message.reply_text("The cosmic servers are busy. Please try again in a moment.")
+            await update.message.reply_text(
+                "The cosmic servers are busy. Please try again in a moment."
+            )
             return
 
+        # Check if user is premium
+        premium = await is_premium(user_id)
+
         if premium:
+            # Format the real data beautifully
             text = (
                 f"🌟 **{sign_name.title()} – Detailed Real Horoscope**\n"
                 f"📅 {datetime.now().strftime('%B %d, %Y')}\n\n"
-                f"{horoscope_data['description']}\n\n"
-                f"❤️ **Love:** {horoscope_data['love']}\n\n"
-                f"💼 **Career:** {horoscope_data['career']}\n\n"
-                f"🏥 **Health:** {horoscope_data['health']}\n\n"
-                f"🎨 **Color:** {horoscope_data.get('lucky_color', 'Unknown')}\n"
+                f"{horoscope_data.get('description', '')}\n\n"
+                f"❤️ **Love:** {horoscope_data.get('love', 'Not available')}\n\n"
+                f"💼 **Career:** {horoscope_data.get('career', 'Not available')}\n\n"
+                f"🏥 **Health:** {horoscope_data.get('health', 'Not available')}\n\n"
+                f"🎨 **Color:** {horoscope_data.get('color', 'Unknown')}\n"
                 f"🔢 **Lucky Number:** {horoscope_data.get('lucky_number', '?')}\n"
                 f"😊 **Mood:** {horoscope_data.get('mood', 'Positive')}"
             )
@@ -47,8 +49,8 @@ async def get_horoscope(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Free users get only the description (but still real)
             text = (
                 f"✨ **{sign_name.title()} – Today's Real Horoscope**\n\n"
-                f"{horoscope_data['description']}\n\n"
-                f"_Upgrade to premium for love, career & health details._"
+                f"{horoscope_data.get('description', '')}\n\n"
+                f"_Upgrade to premium for love, career & health details!_"
             )
 
         await update.message.reply_markdown(text)
@@ -73,26 +75,24 @@ async def weekly(update: Update, context: ContextTypes.DEFAULT_TYPE):
         sign_name = get_sign_name(sign_num)
         premium = await is_premium(user_id)
 
-        # For weekly, we could aggregate multiple days or use a separate endpoint.
-        # Zodii doesn't have a weekly endpoint; we'll create a simple weekly summary.
-        # For premium, we'll generate a more detailed forecast.
-        
         if premium:
-            # Premium gets a more elaborate weekly forecast (still based on real daily data)
-            days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-            weekly_text = f"**{sign_name.title()} – Weekly Premium Forecast**\n\n"
-            for day in days:
-                day_data = await api.get_daily_horoscope(sign_name)
-                if day_data:
-                    weekly_text += f"**{day}:** {day_data['description'][:100]}...\n\n"
-                await asyncio.sleep(0.5)  # Avoid rate limits
-            weekly_text += "**Weekend:** Rest and recharge."
-            await update.message.reply_markdown(weekly_text)
+            # Get today's horoscope as base
+            today_data = await api.get_daily_horoscope(sign_name)
+            if today_data:
+                text = (
+                    f"**{sign_name.title()} – Weekly Preview**\n\n"
+                    f"This week's energy is influenced by:\n"
+                    f"{today_data.get('description', '')}\n\n"
+                    f"Check back daily for your complete horoscope!"
+                )
+            else:
+                text = f"**{sign_name.title()} – Weekly Overview**\n\nCheck back soon!"
+            
+            await update.message.reply_markdown(text)
         else:
-            # Free weekly overview
             await update.message.reply_markdown(
                 f"**{sign_name.title()} – Weekly Overview**\n\n"
-                f"Upgrade to premium for a detailed day-by-day forecast!\n"
+                f"Upgrade to premium for detailed weekly forecasts!\n"
                 f"Use /premium to learn more."
             )
     except Exception as e:
