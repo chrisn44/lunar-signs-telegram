@@ -1,21 +1,41 @@
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker, declarative_base
-from bot_config import DATABASE_URL
+import os
+import json
+from datetime import datetime
 
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
-elif not DATABASE_URL.startswith("postgresql+"):
-    DATABASE_URL = f"postgresql+asyncpg://{DATABASE_URL.split('://')[1]}"
+# Simple file-based storage
+DATA_DIR = "data"
+USERS_FILE = os.path.join(DATA_DIR, "users.json")
+PAYMENTS_FILE = os.path.join(DATA_DIR, "payments.json")
 
-engine = create_async_engine(DATABASE_URL, echo=False)
-AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+# Create data directory if it doesn't exist
+os.makedirs(DATA_DIR, exist_ok=True)
 
-Base = declarative_base()
+# Initialize empty files if they don't exist
+for file in [USERS_FILE, PAYMENTS_FILE]:
+    if not os.path.exists(file):
+        with open(file, 'w') as f:
+            json.dump({}, f)
+
+def load_data(file_path):
+    with open(file_path, 'r') as f:
+        return json.load(f)
+
+def save_data(file_path, data):
+    with open(file_path, 'w') as f:
+        json.dump(data, f, indent=2)
 
 async def get_db():
-    async with AsyncSessionLocal() as session:
-        yield session
-
-async def init_db():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    """Simple context manager for file-based storage"""
+    class SimpleDB:
+        def __init__(self):
+            self.users = load_data(USERS_FILE)
+            self.payments = load_data(PAYMENTS_FILE)
+        
+        async def __aenter__(self):
+            return self
+        
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            save_data(USERS_FILE, self.users)
+            save_data(PAYMENTS_FILE, self.payments)
+    
+    return SimpleDB()
