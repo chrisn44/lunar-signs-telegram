@@ -6,33 +6,40 @@ import dateutil.parser
 rate_limiter = RateLimiter()
 
 async def check_rate_limit(user_id: int, action: str = "default", limit: int = None) -> bool:
-    """Check if user is within rate limits"""
+    """Check if user is within rate limits."""
     try:
-        # Premium users bypass rate limits
         if await is_premium(user_id):
             return True
-        
-        # Check rate limit
         return await rate_limiter.check_limit(user_id, action)
     except Exception as e:
         print(f"Rate limit check error: {e}")
-        # If rate limit check fails, allow the request
-        return True
+        return True  # Fail open
 
 async def is_premium(user_id: int) -> bool:
-    """Check if user has premium access"""
+    """Check if user has active premium access."""
     try:
         db = await get_db()
         user_data = db.get_user(user_id)
-        
-        if user_data and user_data.get('is_premium'):
+        if not user_data:
+            return False
+        if user_data.get('is_premium'):
             premium_until = user_data.get('premium_until')
             if premium_until:
-                # Parse ISO format date
+                # Handle both string and datetime objects
                 if isinstance(premium_until, str):
                     premium_date = dateutil.parser.parse(premium_until)
-                    if premium_date > datetime.now():
-                        return True
+                else:
+                    premium_date = premium_until
+                # Ensure premium_date is timezone-naive for comparison
+                if premium_date.tzinfo is not None:
+                    premium_date = premium_date.replace(tzinfo=None)
+                now = datetime.now()
+                if premium_date > now:
+                    return True
+                else:
+                    # Expired, update user record
+                    db.update_user(user_id, is_premium=False, premium_until=None)
+        return False
     except Exception as e:
         print(f"Error checking premium status: {e}")
-    return False
+        return False
