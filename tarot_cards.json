@@ -1,0 +1,72 @@
+[
+  {
+    "name": "The Fool",
+    "meaning": {
+      "brief": "New beginnings, innocence, spontaneity.",
+      "detailed": "The Fool represents a fresh start, a leap of faith. You are on the verge of an adventure, but must remain open-minded and trust the journey."
+    }
+  },
+  {
+    "name": "The Magician",
+    "meaning": {
+      "brief": "Manifestation, resourcefulness, power.",
+      "detailed": "You have all the tools you need to succeed. Focus your will and take action – the universe is supporting your endeavors."
+    }
+  },
+  {
+    "name": "The High Priestess",
+    "meaning": {
+      "brief": "Intuition, mystery, the subconscious.",
+      "detailed": "Trust your inner voice. Secrets may be revealed; pay attention to your dreams and gut feelings."
+    }
+  },
+  {
+    "name": "The Empress",
+    "meaning": {
+      "brief": "Fertility, creativity, abundance.",
+      "detailed": "Nurture yourself and others. Creativity and growth are flourishing – embrace them."
+    }
+  },
+  {
+    "name": "The Emperor",
+    "meaning": {
+      "brief": "Authority, structure, control.",
+      "detailed": "Establish order and take charge. You have the power to create stability through discipline."
+    }
+  },
+  {
+    "name": "The Hierophant",
+    "meaning": {
+      "brief": "Tradition, conformity, spiritual wisdom.",
+      "detailed": "Seek guidance from established institutions or mentors. Sometimes following tradition brings peace."
+    }
+  },
+  {
+    "name": "The Lovers",
+    "meaning": {
+      "brief": "Love, harmony, choices.",
+      "detailed": "A significant relationship or decision is at hand. Follow your heart but weigh the consequences."
+    }
+  },
+  {
+    "name": "The Chariot",
+    "meaning": {
+      "brief": "Willpower, determination, victory.",
+      "detailed": "Stay focused and drive forward. You will overcome obstacles through sheer determination."
+    }
+  },
+  {
+    "name": "Strength",
+    "meaning": {
+      "brief": "Courage, patience, compassion.",
+      "detailed": "True strength comes from inner calm. Face challenges with grace and compassion."
+    }
+  },
+  {
+    "name": "The Hermit",
+    "meaning": {
+      "brief": "Introspection, solitude, guidance.",
+      "detailed": "Take time to reflect. The answers you seek lie within – or from a wise teacher."
+    }
+  }
+]
