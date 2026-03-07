@@ -47,7 +47,9 @@ async def send_invoice(update: Update, title: str, payload: str, stars: int):
         # Amount in smallest units: stars * 100
         prices = [LabeledPrice(title, stars * 100)]
         
-        await update.message.reply_invoice(
+        # Send the invoice
+        await context.bot.send_invoice(
+            chat_id=chat_id,
             title=title,
             description=description,
             payload=payload,
@@ -126,11 +128,6 @@ async def successful_payment(update: Update, context: ContextTypes.DEFAULT_TYPE)
             f"Enjoy all the premium features! ✨",
             parse_mode='Markdown'
         )
-
-        # Optionally, notify admin
-        # from bot_config import ADMIN_IDS
-        # for admin_id in ADMIN_IDS:
-        #     await context.bot.send_message(admin_id, f"New premium purchase: user {user_id} for {item}")
 
     except Exception as e:
         logger.error(f"Error processing successful payment: {e}")
