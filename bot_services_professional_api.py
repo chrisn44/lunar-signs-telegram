@@ -20,11 +20,11 @@ class ProfessionalAstrologyAPI:
             "Content-Type": "application/json"
         }
     
-    async def get_daily_horoscope(self, sign: str) -> Optional[str]:
+    async def get_daily_horoscope(self, sign: str) -> Optional[Dict]:
         """
-        Get today's horoscope text from Zodii API.
+        Get today's horoscope from Zodii API.
         Endpoint: GET /api/horoscope/{sign}
-        Returns: String containing the horoscope text
+        Returns: Dictionary with horoscope data
         """
         if not self.token:
             print("❌ ZODII_TOKEN not set in environment variables")
@@ -52,26 +52,17 @@ class ProfessionalAstrologyAPI:
                 
                 if response.status_code == 200:
                     data = response.json()
+                    print(f"✅ Received response for {sign}")
                     
-                    # Handle different response formats
-                    if isinstance(data, str):
-                        # Direct string response
-                        horoscope_text = data
-                    elif isinstance(data, dict):
-                        # Try common field names for horoscope text
-                        horoscope_text = (data.get('horoscope') or 
-                                        data.get('description') or 
-                                        data.get('message') or 
-                                        data.get('text') or
-                                        json.dumps(data))
+                    # Extract the actual horoscope data
+                    if isinstance(data, dict) and data.get('success') and data.get('data'):
+                        horoscope_data = data['data']
+                        # Cache the result
+                        self.cache[cache_key] = horoscope_data
+                        return horoscope_data
                     else:
-                        horoscope_text = str(data)
-                    
-                    print(f"✅ Received horoscope for {sign} (length: {len(horoscope_text)})")
-                    
-                    # Cache the result
-                    self.cache[cache_key] = horoscope_text
-                    return horoscope_text
+                        print(f"⚠️ Unexpected response format: {data}")
+                        return None
                     
                 elif response.status_code == 401:
                     print(f"❌ Unauthorized - Check your ZODII_TOKEN")
@@ -103,7 +94,10 @@ class ProfessionalAstrologyAPI:
                     timeout=10.0
                 )
                 if response.status_code == 200:
-                    return response.json()
+                    data = response.json()
+                    if isinstance(data, dict) and data.get('success') and data.get('data'):
+                        return data['data']
+                    return data
                 return None
             except Exception as e:
                 print(f"❌ Error fetching zodiac info: {e}")
@@ -124,7 +118,10 @@ class ProfessionalAstrologyAPI:
                     timeout=10.0
                 )
                 if response.status_code == 200:
-                    return response.json()
+                    data = response.json()
+                    if isinstance(data, dict) and data.get('success') and data.get('data'):
+                        return data['data']
+                    return data
                 return None
             except Exception as e:
                 print(f"❌ Error fetching tarot cards: {e}")
@@ -150,7 +147,10 @@ class ProfessionalAstrologyAPI:
                     timeout=10.0
                 )
                 if response.status_code == 200:
-                    return response.json()
+                    data = response.json()
+                    if isinstance(data, dict) and data.get('success') and data.get('data'):
+                        return data['data']
+                    return data
                 return None
             except Exception as e:
                 print(f"❌ Error drawing tarot cards: {e}")
