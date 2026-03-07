@@ -1,7 +1,8 @@
 import logging
 import asyncio
+from telegram import Update
 from telegram.ext import (
-    Application, CommandHandler, MessageHandler,
+    Application, CommandHandler, MessageHandler, ContextTypes,
     filters, PreCheckoutQueryHandler, CallbackQueryHandler
 )
 from bot_config import BOT_TOKEN, ADMIN_IDS
