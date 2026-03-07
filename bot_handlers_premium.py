@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from bot_database import get_db
 from bot_utils_helpers import is_premium
 import logging
+import random
 
 # Premium prices in Telegram Stars
 PREMIUM_WEEK_STARS = 50
@@ -127,9 +128,9 @@ async def successful_payment(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
 
         # Optionally, notify admin
-        # if ADMIN_IDS:
-        #     for admin_id in ADMIN_IDS:
-        #         await context.bot.send_message(admin_id, f"New premium purchase: user {user_id} for {item}")
+        # from bot_config import ADMIN_IDS
+        # for admin_id in ADMIN_IDS:
+        #     await context.bot.send_message(admin_id, f"New premium purchase: user {user_id} for {item}")
 
     except Exception as e:
         logger.error(f"Error processing successful payment: {e}")
@@ -191,7 +192,6 @@ async def compatibility(update: Update, context: ContextTypes.DEFAULT_TYPE):
             comment = "An interesting mix – with mutual respect, you can create magic."
         
         # Add a little randomness (±5) for variety
-        import random
         score = base_score + random.randint(-5, 5)
         score = max(0, min(100, score))
         
@@ -204,3 +204,23 @@ async def compatibility(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Error in compatibility: {e}")
         await update.message.reply_text("Sorry, unable to calculate compatibility at this time.")
+
+async def my_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Check your premium status."""
+    user_id = update.effective_user.id
+    if await is_premium(user_id):
+        db = await get_db()
+        user = db.get_user(user_id)
+        expiry = user.get('premium_until')
+        if expiry:
+            from dateutil import parser
+            if isinstance(expiry, str):
+                expiry_dt = parser.parse(expiry)
+            else:
+                expiry_dt = expiry
+            expiry_str = expiry_dt.strftime('%Y-%m-%d')
+            await update.message.reply_text(f"✅ You have premium access until **{expiry_str}**.", parse_mode='Markdown')
+        else:
+            await update.message.reply_text("✅ You have premium access (no expiry set).")
+    else:
+        await update.message.reply_text("❌ You don't have premium. Use /buy_week or /buy_month to upgrade!")
