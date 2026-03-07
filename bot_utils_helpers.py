@@ -2,6 +2,7 @@ from bot_database import get_db
 from bot_middleware_ratelimit import RateLimiter
 from datetime import datetime
 import dateutil.parser
+from bot_config import ADMIN_IDS
 
 rate_limiter = RateLimiter()
 
@@ -16,8 +17,13 @@ async def check_rate_limit(user_id: int, action: str = "default", limit: int = N
         return True  # Fail open
 
 async def is_premium(user_id: int) -> bool:
-    """Check if user has active premium access."""
+    """Check if user has active premium access or is admin."""
     try:
+        # Check if user is admin (automatic premium)
+        if user_id in ADMIN_IDS:
+            print(f"✅ Admin user {user_id} - automatic premium access")
+            return True
+            
         db = await get_db()
         user_data = db.get_user(user_id)
         if not user_data:
