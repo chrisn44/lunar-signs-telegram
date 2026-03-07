@@ -1,6 +1,5 @@
 import logging
 import asyncio
-import os
 from telegram.ext import (
     Application, CommandHandler, MessageHandler,
     filters, PreCheckoutQueryHandler, CallbackQueryHandler
@@ -10,12 +9,12 @@ from bot_handlers_start import start, set_sign_callback
 from bot_handlers_horoscope import get_horoscope, weekly
 from bot_handlers_tarot import daily_tarot, three_card_spread, celtic_cross
 from bot_handlers_premium import (
-    info, buy_week, buy_month, compatibility,
-    pre_checkout, successful_payment
+    info, buy_week, buy_month, compatibility, pre_checkout,
+    successful_payment, my_premium
 )
 from bot_handlers_admin import admin_panel
 from bot_handlers_errors import error_handler
-from bot_utils_captcha import captcha_required, handle_captcha_answer
+from bot_utils_captcha import captcha_required, handle_captcha_answer, reset_captcha
 from bot_database import init_db
 from bot_config import ADMIN_IDS
 
@@ -25,24 +24,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-async def post_init(application: Application):
-    """Set up webhook if in production"""
-    # For Railway, you can use webhooks instead of polling
-    # This removes the 409 error
-    webhook_url = os.environ.get("RAILWAY_PUBLIC_URL")
-    if webhook_url:
-        await application.bot.set_webhook(f"{webhook_url}/webhook")
-        logger.info(f"Webhook set to {webhook_url}/webhook")
-
 def main():
     # Initialize database
     asyncio.get_event_loop().run_until_complete(init_db())
 
     # Create application
-    app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
+    app = Application.builder().token(BOT_TOKEN).build()
 
     # Register handlers
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("reset", reset_captcha))
     app.add_handler(CallbackQueryHandler(set_sign_callback, pattern="^set_sign_"))
     app.add_handler(CallbackQueryHandler(handle_captcha_answer, pattern="^captcha_"))
 
@@ -55,6 +46,7 @@ def main():
     app.add_handler(CommandHandler("spread", three_card_spread))
     app.add_handler(CommandHandler("celtic", celtic_cross))
     app.add_handler(CommandHandler("compatibility", compatibility))
+    app.add_handler(CommandHandler("mypremium", my_premium))
 
     # Premium info & purchase
     app.add_handler(CommandHandler("premium", info))
@@ -71,19 +63,8 @@ def main():
     # Error handler
     app.add_error_handler(error_handler)
 
-    logger.info("LunarSignsBot started...")
-    
-    # Use webhook in production, polling for development
-    if os.environ.get("RAILWAY_PUBLIC_URL"):
-        # Run with webhook
-        app.run_webhook(
-            listen="0.0.0.0",
-            port=int(os.environ.get("PORT", 8080)),
-            webhook_url="/webhook"
-        )
-    else:
-        # Run with polling (for local development)
-        app.run_polling()
+    logger.info("LunarSignsBot started. Polling...")
+    app.run_polling()
 
 if __name__ == "__main__":
     main()
