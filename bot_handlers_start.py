@@ -1,6 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from bot_database import get_db
+from bot_utils_captcha import captcha_store
 
 ZODIAC_SIGNS = [
     "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
@@ -56,3 +57,19 @@ async def set_sign_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         print(f"Error in set_sign_callback: {e}")
         await query.edit_message_text("Sorry, there was an error setting your sign. Please try again.")
+
+async def reset_captcha(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Reset captcha for user if stuck."""
+    try:
+        user_id = update.effective_user.id
+        if user_id in captcha_store:
+            del captcha_store[user_id]
+            await update.message.reply_text("✅ Captcha reset. Please try /start again.")
+        else:
+            # Also clear from user_data
+            if 'captcha_input' in context.user_data:
+                context.user_data['captcha_input'].pop(user_id, None)
+            await update.message.reply_text("No active captcha found. You can use /start normally.")
+    except Exception as e:
+        print(f"Error in reset_captcha: {e}")
+        await update.message.reply_text("Error resetting captcha. Please try again.")
