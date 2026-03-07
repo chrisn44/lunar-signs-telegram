@@ -6,8 +6,8 @@ from telegram.ext import (
     filters, PreCheckoutQueryHandler, CallbackQueryHandler
 )
 from bot_config import BOT_TOKEN, ADMIN_IDS
-from bot_handlers_start import start, set_sign_callback
-from bot_handlers_horoscope import get_horoscope, weekly
+from bot_handlers_start import start, set_sign_callback, reset_captcha
+from bot_handlers_horoscope import get_horoscope  # REMOVED weekly import
 from bot_handlers_tarot import daily_tarot, three_card_spread, celtic_cross
 from bot_handlers_premium import (
     info, buy_week, buy_month, compatibility, pre_checkout,
@@ -15,7 +15,7 @@ from bot_handlers_premium import (
 )
 from bot_handlers_admin import admin_panel
 from bot_handlers_errors import error_handler
-from bot_utils_captcha import captcha_required, handle_captcha_answer, reset_captcha
+from bot_utils_captcha import captcha_required, handle_captcha_answer
 from bot_database import init_db
 
 # Set up logging
@@ -24,14 +24,6 @@ logging.basicConfig(
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
-
-# Debug handler to see all commands (optional - can be removed later)
-async def debug_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Debug handler to log all incoming messages."""
-    if update.message and update.message.text:
-        text = update.message.text
-        user_id = update.effective_user.id
-        logger.info(f"🔍 DEBUG - Received from user {user_id}: {text}")
 
 def main():
     """Main function to start the bot."""
@@ -48,10 +40,6 @@ def main():
         app = Application.builder().token(BOT_TOKEN).build()
         logger.info("Application created successfully")
 
-        # Add debug handler (optional - comment out if not needed)
-        # app.add_handler(MessageHandler(filters.ALL, debug_handler), group=-1)
-        # logger.info("Debug handler added")
-
         # Register main handlers
         logger.info("Registering handlers...")
         
@@ -63,9 +51,8 @@ def main():
         app.add_handler(CallbackQueryHandler(set_sign_callback, pattern="^set_sign_"))
         app.add_handler(CallbackQueryHandler(handle_captcha_answer, pattern="^captcha_"))
 
-        # Free commands (with captcha)
+        # Free commands (with captcha) - WEEKLY REMOVED
         app.add_handler(CommandHandler("horoscope", captcha_required(get_horoscope)))
-        app.add_handler(CommandHandler("weekly", captcha_required(weekly)))
         app.add_handler(CommandHandler("tarot", captcha_required(daily_tarot)))
 
         # Premium commands (check inside handler)
@@ -77,15 +64,15 @@ def main():
         # Premium info & purchase - support BOTH formats
         app.add_handler(CommandHandler("premium", info))
         app.add_handler(CommandHandler("buy_week", buy_week))
-        app.add_handler(CommandHandler("buyweek", buy_week))      # Without underscore
+        app.add_handler(CommandHandler("buyweek", buy_week))
         app.add_handler(CommandHandler("buy_month", buy_month))
-        app.add_handler(CommandHandler("buymonth", buy_month))    # Without underscore
+        app.add_handler(CommandHandler("buymonth", buy_month))
 
         # Admin commands (restricted)
         app.add_handler(CommandHandler("admin", admin_panel, filters=filters.User(user_id=ADMIN_IDS)))
         app.add_handler(CommandHandler("grant", grant_premium, filters=filters.User(user_id=ADMIN_IDS)))
 
-        # Payment handlers - CRITICAL for Stars payments
+        # Payment handlers
         app.add_handler(PreCheckoutQueryHandler(pre_checkout))
         app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment))
 
