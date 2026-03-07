@@ -1,5 +1,6 @@
 import logging
 import asyncio
+import os
 from telegram.ext import (
     Application, CommandHandler, MessageHandler,
     filters, PreCheckoutQueryHandler, CallbackQueryHandler
@@ -24,12 +25,21 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+async def post_init(application: Application):
+    """Set up webhook if in production"""
+    # For Railway, you can use webhooks instead of polling
+    # This removes the 409 error
+    webhook_url = os.environ.get("RAILWAY_PUBLIC_URL")
+    if webhook_url:
+        await application.bot.set_webhook(f"{webhook_url}/webhook")
+        logger.info(f"Webhook set to {webhook_url}/webhook")
+
 def main():
     # Initialize database
     asyncio.get_event_loop().run_until_complete(init_db())
 
     # Create application
-    app = Application.builder().token(BOT_TOKEN).build()
+    app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
 
     # Register handlers
     app.add_handler(CommandHandler("start", start))
@@ -61,8 +71,19 @@ def main():
     # Error handler
     app.add_error_handler(error_handler)
 
-    logger.info("LunarSignsBot started. Polling...")
-    app.run_polling()
+    logger.info("LunarSignsBot started...")
+    
+    # Use webhook in production, polling for development
+    if os.environ.get("RAILWAY_PUBLIC_URL"):
+        # Run with webhook
+        app.run_webhook(
+            listen="0.0.0.0",
+            port=int(os.environ.get("PORT", 8080)),
+            webhook_url="/webhook"
+        )
+    else:
+        # Run with polling (for local development)
+        app.run_polling()
 
 if __name__ == "__main__":
     main()
