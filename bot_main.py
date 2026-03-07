@@ -47,10 +47,12 @@ def main():
     app.add_handler(CommandHandler("compatibility", compatibility))
     app.add_handler(CommandHandler("mypremium", my_premium))
 
-    # Premium info & purchase - MAKE SURE THESE ARE HERE
+    # Premium info & purchase - support BOTH formats
     app.add_handler(CommandHandler("premium", info))
     app.add_handler(CommandHandler("buy_week", buy_week))
+    app.add_handler(CommandHandler("buyweek", buy_week))      # Added without underscore
     app.add_handler(CommandHandler("buy_month", buy_month))
+    app.add_handler(CommandHandler("buymonth", buy_month))    # Added without underscore
 
     # Admin
     app.add_handler(CommandHandler("admin", admin_panel, filters=filters.User(user_id=ADMIN_IDS)))
