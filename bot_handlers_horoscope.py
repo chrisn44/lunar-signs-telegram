@@ -7,45 +7,90 @@ from bot_utils_helpers import check_rate_limit, is_premium
 
 async def get_horoscope(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
+        # Send debug message
+        await update.message.reply_text("🔍 Debug: Starting horoscope function...")
+        
         user_id = update.effective_user.id
-        db = await get_db()
-        user = db.get_user(user_id)
+        await update.message.reply_text(f"🔍 Debug: User ID: {user_id}")
+        
+        # Get database
+        try:
+            db = await get_db()
+            await update.message.reply_text("✅ Debug: Database connected")
+        except Exception as e:
+            await update.message.reply_text(f"❌ Debug: Database error: {str(e)}")
+            return
+        
+        # Get user
+        try:
+            user = db.get_user(user_id)
+            await update.message.reply_text(f"✅ Debug: User found: {user is not None}")
+        except Exception as e:
+            await update.message.reply_text(f"❌ Debug: Get user error: {str(e)}")
+            return
 
         if not user or not user.get('sign'):
             await update.message.reply_text("Please set your sign first using /start.")
             return
 
-        # Check premium for detailed version
-        premium = await is_premium(user_id)
+        # Check premium
+        try:
+            premium = await is_premium(user_id)
+            await update.message.reply_text(f"✅ Debug: Premium status: {premium}")
+        except Exception as e:
+            await update.message.reply_text(f"❌ Debug: Premium check error: {str(e)}")
+            return
+
         sign_num = user.get('sign')
         sign_name = get_sign_name(sign_num)
+        await update.message.reply_text(f"✅ Debug: Sign: {sign_name}")
 
         if premium:
             # Detailed premium horoscope
-            detailed = await get_today_horoscope(sign_name, detailed=True)
-            text = (
-                f"🌟 **{sign_name.title()} – Detailed Horoscope**\n"
-                f"📅 {datetime.now().strftime('%B %d, %Y')}\n\n"
-                f"{detailed}"
-            )
+            try:
+                detailed = await get_today_horoscope(sign_name, detailed=True)
+                await update.message.reply_text(f"✅ Debug: Got premium horoscope")
+                text = (
+                    f"🌟 **{sign_name.title()} – Detailed Horoscope**\n"
+                    f"📅 {datetime.now().strftime('%B %d, %Y')}\n\n"
+                    f"{detailed}"
+                )
+            except Exception as e:
+                await update.message.reply_text(f"❌ Debug: Premium horoscope error: {str(e)}")
+                return
         else:
             # Basic free horoscope
-            if not await check_rate_limit(user_id, "daily"):
-                await update.message.reply_text(
-                    "You've used your daily free horoscope. Upgrade to premium for unlimited access!\n/premium"
-                )
+            try:
+                if not await check_rate_limit(user_id, "daily"):
+                    await update.message.reply_text(
+                        "You've used your daily free horoscope. Upgrade to premium for unlimited access!\n/premium"
+                    )
+                    return
+                await update.message.reply_text(f"✅ Debug: Rate limit passed")
+            except Exception as e:
+                await update.message.reply_text(f"❌ Debug: Rate limit error: {str(e)}")
                 return
-            basic = await get_today_horoscope(sign_name, detailed=False)
-            text = f"✨ **{sign_name.title()} – Today's Horoscope**\n\n{basic}\n\n_Upgrade to premium for love, career & health details._"
+                
+            try:
+                basic = await get_today_horoscope(sign_name, detailed=False)
+                await update.message.reply_text(f"✅ Debug: Got basic horoscope")
+                text = f"✨ **{sign_name.title()} – Today's Horoscope**\n\n{basic}\n\n_Upgrade to premium for love, career & health details._"
+            except Exception as e:
+                await update.message.reply_text(f"❌ Debug: Basic horoscope error: {str(e)}")
+                return
 
-        await update.message.reply_markdown(text)
+        # Send final message
+        try:
+            await update.message.reply_markdown(text)
+            await update.message.reply_text("✅ Debug: Message sent successfully!")
+        except Exception as e:
+            await update.message.reply_text(f"❌ Debug: Send message error: {str(e)}")
         
     except Exception as e:
-        print(f"Error in get_horoscope: {e}")
-        await update.message.reply_text(
-            "✨ The stars are aligned in your favor today! "
-            "Please try again in a moment for your detailed horoscope."
-        )
+        await update.message.reply_text(f"❌ Debug: Unexpected error: {str(e)}")
+        # Print to logs
+        import traceback
+        traceback.print_exc()
 
 async def weekly(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
