@@ -61,6 +61,12 @@ def get_element(sign: str) -> str:
     }
     return elements.get(sign.lower(), "air")
 
+def format_lucky_numbers(numbers):
+    """Format lucky numbers list"""
+    if isinstance(numbers, list):
+        return ', '.join(map(str, numbers))
+    return str(numbers)
+
 async def get_horoscope(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Get daily horoscope from real API"""
     try:
@@ -85,30 +91,33 @@ async def get_horoscope(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
         
         # Call real API
-        horoscope_text = await api.get_daily_horoscope(sign_name)
+        horoscope_data = await api.get_daily_horoscope(sign_name)
         
         today = datetime.now().strftime("%B %d, %Y")
         
         if premium:
-            # PREMIUM: Enhanced horoscope with additional insights
-            if horoscope_text:
-                # Use API text as base and enhance it
+            # PREMIUM: Enhanced horoscope with API data + additional insights
+            if horoscope_data and isinstance(horoscope_data, dict):
+                # Extract API data
+                api_horoscope = horoscope_data.get('horoscope', '')
+                lucky_numbers = horoscope_data.get('luckynumbers', [random.randint(1, 9), random.randint(1, 9), random.randint(1, 9)])
+                lucky_color = horoscope_data.get('luckycolor', random.choice(COLORS))
+                
+                # Add premium insights
                 love = random.choice(LOVE_INSIGHTS)
                 career = random.choice(CAREER_INSIGHTS)
                 health = random.choice(HEALTH_INSIGHTS)
-                color = random.choice(COLORS)
-                lucky_number = random.randint(1, 9)
                 mood = random.choice(MOODS)
                 
                 text = (
                     f"🌟 **{sign_name.title()} – Premium Horoscope**\n"
                     f"📅 {today}\n\n"
-                    f"**Cosmic Overview:**\n{horoscope_text}\n\n"
+                    f"**Cosmic Overview:**\n{api_horoscope}\n\n"
                     f"❤️ **Love & Relationships:**\n{love}\n\n"
                     f"💼 **Career & Finance:**\n{career}\n\n"
                     f"🏥 **Health & Wellness:**\n{health}\n\n"
-                    f"🎨 **Lucky Color:** {color}\n"
-                    f"🔢 **Lucky Number:** {lucky_number}\n"
+                    f"🎨 **Lucky Color:** {lucky_color}\n"
+                    f"🔢 **Lucky Numbers:** {format_lucky_numbers(lucky_numbers)}\n"
                     f"😊 **Today's Mood:** {mood}\n"
                     f"🔥 **Element:** {element.title()}"
                 )
@@ -127,14 +136,25 @@ async def get_horoscope(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
         else:
             # FREE: Basic horoscope from API only
-            if horoscope_text:
+            if horoscope_data and isinstance(horoscope_data, dict):
+                api_horoscope = horoscope_data.get('horoscope', '')
+                lucky_numbers = horoscope_data.get('luckynumbers', [])
+                lucky_color = horoscope_data.get('luckycolor', '')
+                
                 text = (
                     f"✨ **{sign_name.title()} – Daily Horoscope**\n"
                     f"📅 {today}\n\n"
-                    f"{horoscope_text}\n\n"
-                    f"_✨ Upgrade to premium for love, career & health insights!_\n"
-                    f"_Use /premium to learn more._"
+                    f"{api_horoscope}\n"
                 )
+                
+                # Add lucky info if available
+                if lucky_numbers:
+                    text += f"\n🔢 **Lucky Numbers:** {format_lucky_numbers(lucky_numbers)}"
+                if lucky_color:
+                    text += f"\n🎨 **Lucky Color:** {lucky_color}"
+                
+                text += "\n\n_✨ Upgrade to premium for love, career & health insights!_\n"
+                text += "_Use /premium to learn more._"
             else:
                 # Fallback if API fails
                 text = (
