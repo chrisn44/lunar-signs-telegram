@@ -1,26 +1,29 @@
-from sqlalchemy import Column, BigInteger, String, Boolean, DateTime, Integer, ForeignKey
-from sqlalchemy.sql import func
-from bot_database import Base
+# This file is now just for type hints and compatibility
+# All actual data is stored in JSON files via bot_database.py
 
-class User(Base):
-    __tablename__ = "users"
+from typing import Optional, Dict, Any
+from datetime import datetime
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    telegram_id = Column(BigInteger, unique=True, nullable=False)
-    username = Column(String, nullable=True)
-    sign = Column(Integer, nullable=True)          # 1-12 for zodiac
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    is_premium = Column(Boolean, default=False)
-    premium_until = Column(DateTime(timezone=True), nullable=True)
-    language = Column(String, default="en")
-    captcha_passed = Column(Boolean, default=False)
+# These are just type hints - actual data comes from JSON
+class User:
+    """User model - for type hints only"""
+    def __init__(self, data: Dict[str, Any]):
+        self.id = data.get('id')
+        self.telegram_id = data.get('telegram_id')
+        self.username = data.get('username')
+        self.sign = data.get('sign')
+        self.created_at = data.get('created_at')
+        self.is_premium = data.get('is_premium', False)
+        self.premium_until = data.get('premium_until')
+        self.language = data.get('language', 'en')
+        self.captcha_passed = data.get('captcha_passed', False)
 
-class Payment(Base):
-    __tablename__ = "payments"
-
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    user_id = Column(BigInteger, ForeignKey("users.telegram_id"))
-    telegram_payment_id = Column(String, unique=True)
-    stars_amount = Column(Integer)
-    purchased_item = Column(String)   # "week", "month"
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+class Payment:
+    """Payment model - for type hints only"""
+    def __init__(self, data: Dict[str, Any]):
+        self.id = data.get('id')
+        self.user_id = data.get('user_id')
+        self.telegram_payment_id = data.get('telegram_payment_id')
+        self.stars_amount = data.get('stars_amount')
+        self.purchased_item = data.get('purchased_item')
+        self.created_at = data.get('created_at')
