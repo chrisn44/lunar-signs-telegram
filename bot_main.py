@@ -4,7 +4,7 @@ from telegram.ext import (
     Application, CommandHandler, MessageHandler,
     filters, PreCheckoutQueryHandler, CallbackQueryHandler
 )
-from bot_config import BOT_TOKEN
+from bot_config import BOT_TOKEN, ADMIN_IDS
 from bot_handlers_start import start, set_sign_callback
 from bot_handlers_horoscope import get_horoscope, weekly
 from bot_handlers_tarot import daily_tarot, three_card_spread, celtic_cross
@@ -16,7 +16,6 @@ from bot_handlers_admin import admin_panel
 from bot_handlers_errors import error_handler
 from bot_utils_captcha import captcha_required, handle_captcha_answer, reset_captcha
 from bot_database import init_db
-from bot_config import ADMIN_IDS
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -48,7 +47,7 @@ def main():
     app.add_handler(CommandHandler("compatibility", compatibility))
     app.add_handler(CommandHandler("mypremium", my_premium))
 
-    # Premium info & purchase
+    # Premium info & purchase - MAKE SURE THESE ARE HERE
     app.add_handler(CommandHandler("premium", info))
     app.add_handler(CommandHandler("buy_week", buy_week))
     app.add_handler(CommandHandler("buy_month", buy_month))
@@ -56,7 +55,7 @@ def main():
     # Admin
     app.add_handler(CommandHandler("admin", admin_panel, filters=filters.User(user_id=ADMIN_IDS)))
 
-    # Payment handlers
+    # Payment handlers - CRITICAL for Stars payments
     app.add_handler(PreCheckoutQueryHandler(pre_checkout))
     app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment))
 
