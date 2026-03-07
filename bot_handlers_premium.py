@@ -3,6 +3,7 @@ from telegram.ext import ContextTypes
 from datetime import datetime, timedelta
 from bot_database import get_db
 from bot_utils_helpers import is_premium
+from bot_config import ADMIN_IDS
 import logging
 import random
 import traceback
@@ -222,20 +223,99 @@ async def compatibility(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def my_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Check your premium status."""
-    user_id = update.effective_user.id
-    if await is_premium(user_id):
-        db = await get_db()
-        user = db.get_user(user_id)
-        expiry = user.get('premium_until')
-        if expiry:
-            from dateutil import parser
-            if isinstance(expiry, str):
-                expiry_dt = parser.parse(expiry)
+    try:
+        user_id = update.effective_user.id
+        
+        # Check if admin
+        if user_id in ADMIN_IDS:
+            await update.message.reply_text(
+                "👑 **Admin Premium Access**\n\n"
+                "As an admin, you have automatic premium access to all features!",
+                parse_mode='Markdown'
+            )
+            return
+            
+        if await is_premium(user_id):
+            db = await get_db()
+            user = db.get_user(user_id)
+            expiry = user.get('premium_until')
+            if expiry:
+                from dateutil import parser
+                if isinstance(expiry, str):
+                    expiry_dt = parser.parse(expiry)
+                else:
+                    expiry_dt = expiry
+                expiry_str = expiry_dt.strftime('%Y-%m-%d')
+                await update.message.reply_text(
+                    f"✅ You have premium access until **{expiry_str}**.",
+                    parse_mode='Markdown'
+                )
             else:
-                expiry_dt = expiry
-            expiry_str = expiry_dt.strftime('%Y-%m-%d')
-            await update.message.reply_text(f"✅ You have premium access until **{expiry_str}**.", parse_mode='Markdown')
+                await update.message.reply_text("✅ You have premium access (no expiry set).")
         else:
-            await update.message.reply_text("✅ You have premium access (no expiry set).")
-    else:
-        await update.message.reply_text("❌ You don't have premium. Use /buyweek or /buymonth to upgrade!")
+            await update.message.reply_text(
+                "❌ You don't have premium. Use /buyweek or /buymonth to upgrade!"
+            )
+    except Exception as e:
+        logger.error(f"Error in my_premium: {e}")
+        await update.message.reply_text("Error checking premium status.")
+
+async def grant_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin command to grant premium to a user."""
+    user_id = update.effective_user.id
+    
+    # Check if user is admin
+    if user_id not in ADMIN_IDS:
+        await update.message.reply_text("❌ This command is for admins only.")
+        return
+    
+    # Check if user ID provided
+    if not context.args:
+        await update.message.reply_text(
+            "Usage: /grant <user_id> [week/month]\n"
+            "Example: /grant 123456789 month"
+        )
+        return
+    
+    try:
+        target_user_id = int(context.args[0])
+        duration = context.args[1].lower() if len(context.args) > 1 else "month"
+        
+        db = await get_db()
+        user = db.get_user(target_user_id)
+        
+        if not user:
+            # Create user if doesn't exist
+            user = db.create_user(target_user_id)
+            logger.info(f"Created new user {target_user_id}")
+        
+        now = datetime.now()
+        if duration == "week":
+            expiry = now + timedelta(days=7)
+            item = "week"
+        else:
+            expiry = now + timedelta(days=30)
+            item = "month"
+        
+        # Update user premium status
+        db.update_user(
+            target_user_id,
+            is_premium=True,
+            premium_until=expiry.isoformat()
+        )
+        
+        await update.message.reply_text(
+            f"✅ **Premium Granted!**\n\n"
+            f"User: `{target_user_id}`\n"
+            f"Duration: {item}\n"
+            f"Expires: {expiry.strftime('%Y-%m-%d')}",
+            parse_mode='Markdown'
+        )
+        
+        logger.info(f"Admin {user_id} granted premium {item} to user {target_user_id}")
+        
+    except ValueError:
+        await update.message.reply_text("❌ Invalid user ID. Please provide a numeric ID.")
+    except Exception as e:
+        logger.error(f"Error granting premium: {e}")
+        await update.message.reply_text(f"Error: {str(e)}")
