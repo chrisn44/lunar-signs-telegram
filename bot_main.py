@@ -11,7 +11,7 @@ from bot_handlers_horoscope import get_horoscope, weekly
 from bot_handlers_tarot import daily_tarot, three_card_spread, celtic_cross
 from bot_handlers_premium import (
     info, buy_week, buy_month, compatibility, pre_checkout,
-    successful_payment, my_premium
+    successful_payment, my_premium, grant_premium
 )
 from bot_handlers_admin import admin_panel
 from bot_handlers_errors import error_handler
@@ -25,24 +25,22 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Temporary debug handler to see all commands
+# Debug handler to see all commands (optional - can be removed later)
 async def debug_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Debug handler to log all incoming messages."""
     if update.message and update.message.text:
         text = update.message.text
         user_id = update.effective_user.id
         logger.info(f"🔍 DEBUG - Received from user {user_id}: {text}")
-        
-        # Check if it's a command we should handle
-        if text.startswith('/'):
-            logger.info(f"🔍 DEBUG - Command detected: {text}")
 
 def main():
     """Main function to start the bot."""
     try:
         # Initialize database
         logger.info("Initializing database...")
-        asyncio.get_event_loop().run_until_complete(init_db())
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(init_db())
         logger.info("Database initialized successfully")
 
         # Create application
@@ -50,9 +48,9 @@ def main():
         app = Application.builder().token(BOT_TOKEN).build()
         logger.info("Application created successfully")
 
-        # Add debug handler (temporary, can be removed later)
-        app.add_handler(MessageHandler(filters.ALL, debug_handler), group=-1)
-        logger.info("Debug handler added")
+        # Add debug handler (optional - comment out if not needed)
+        # app.add_handler(MessageHandler(filters.ALL, debug_handler), group=-1)
+        # logger.info("Debug handler added")
 
         # Register main handlers
         logger.info("Registering handlers...")
@@ -85,6 +83,7 @@ def main():
 
         # Admin commands (restricted)
         app.add_handler(CommandHandler("admin", admin_panel, filters=filters.User(user_id=ADMIN_IDS)))
+        app.add_handler(CommandHandler("grant", grant_premium, filters=filters.User(user_id=ADMIN_IDS)))
 
         # Payment handlers - CRITICAL for Stars payments
         app.add_handler(PreCheckoutQueryHandler(pre_checkout))
@@ -93,7 +92,8 @@ def main():
         # Error handler
         app.add_error_handler(error_handler)
 
-        logger.info("All handlers registered successfully")
+        logger.info(f"All handlers registered successfully")
+        logger.info(f"Admin IDs: {ADMIN_IDS}")
         logger.info("LunarSignsBot started. Polling...")
         
         # Start polling
