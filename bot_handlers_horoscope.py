@@ -172,42 +172,5 @@ async def get_horoscope(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🌙 The cosmic energies are shifting... please try again in a moment."
         )
 
-async def weekly(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Weekly horoscope forecast"""
-    try:
-        user_id = update.effective_user.id
-        db = await get_db()
-        user = db.get_user(user_id)
-
-        if not user or not user.get('sign'):
-            await update.message.reply_text("Please set your sign first using /start.")
-            return
-
-        sign_num = user.get('sign')
-        sign_name = get_sign_name(sign_num)
-        premium = await is_premium(user_id)
-
-        if premium:
-            days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-            text = f"📅 **{sign_name.title()} – Weekly Premium Forecast**\n\n"
-            
-            for day in days[:5]:  # Weekdays
-                # Get different insight for each day
-                text += f"**{day}:** {random.choice(LOVE_INSIGHTS)}\n\n"
-            
-            text += f"**Weekend:** {random.choice(HEALTH_INSIGHTS)}\n\n"
-            text += f"🔥 **Element Focus:** {get_element(sign_name).title()}"
-            
-            await update.message.reply_markdown(text)
-        else:
-            await update.message.reply_markdown(
-                f"📅 **{sign_name.title()} – Weekly Overview**\n\n"
-                f"This week brings opportunities for growth and self-discovery. "
-                f"Trust your journey and stay open to possibilities.\n\n"
-                f"_Upgrade to premium for a detailed day-by-day forecast!_\n"
-                f"_Use /premium to learn more._"
-            )
-            
-    except Exception as e:
-        print(f"Error in weekly: {e}")
-        await update.message.reply_text("Please try again later.")
+# ⚠️ WEEKLY COMMAND REMOVED - No longer available
+# The API doesn't provide weekly forecasts and we don't want repetitive content
