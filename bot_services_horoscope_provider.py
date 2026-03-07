@@ -1,139 +1,149 @@
-import httpx
 import random
-from datetime import datetime
+import datetime
+from typing import Dict, List, Tuple
 
-# Fallback horoscopes that ALWAYS work
-FALLBACK_HOROSCOPES = {
-    "aries": {
-        "today": "Today brings exciting opportunities for Aries. Your natural leadership skills will shine, and others will look to you for guidance. Trust your instincts and take that leap of faith.",
-        "love": "Romantic opportunities arise mid-week. Single? Someone new enters your circle.",
-        "career": "Professional recognition comes your way. Don't be shy about showcasing your talents.",
-        "health": "High energy levels, but remember to rest when needed."
-    },
-    "taurus": {
-        "today": "Patience will pay off for Taurus today. Stay grounded and focused on your long-term goals. Financial matters look promising.",
-        "love": "Deepen existing connections. Quality time with loved ones is highlighted.",
-        "career": "Steady progress in work. Your reliability is noticed by superiors.",
-        "health": "Focus on nutrition and self-care. Your body needs nourishment."
-    },
-    "gemini": {
-        "today": "Your communication skills are highlighted, Gemini. Perfect day for important conversations, networking, and sharing ideas.",
-        "love": "Flirty conversations lead to romantic possibilities. Express your feelings.",
-        "career": "Your adaptability is your greatest asset. Embrace change at work.",
-        "health": "Mental energy high. Channel it into productive activities."
-    },
-    "cancer": {
-        "today": "Trust your intuition today, Cancer. Family matters may need your attention, and your nurturing nature will be appreciated.",
-        "love": "Vulnerability strengthens bonds. Open your heart to loved ones.",
-        "career": "Your nurturing nature makes you a valuable team player. Help others succeed.",
-        "health": "Emotional health affects physical well-being. Practice self-care."
-    },
-    "leo": {
-        "today": "Your confidence shines bright, Leo. Take the lead on that project you've been considering. Others are ready to follow you.",
-        "love": "Romance blossoms. Grand gestures are appreciated.",
-        "career": "Leadership opportunities arise. Step up and take charge.",
-        "health": "Heart health focus. Cardiovascular exercise beneficial."
-    },
-    "virgo": {
-        "today": "Pay attention to details today, Virgo. A small discovery could lead to big things. Organization brings peace of mind.",
-        "love": "Service to others strengthens relationships. Small gestures matter.",
-        "career": "Your analytical skills solve complex problems. Recognition follows.",
-        "health": "Digestive health focus. Eat mindfully and regularly."
-    },
-    "libra": {
-        "today": "Balance is key today, Libra. Trust your sense of fairness in all situations. Relationships take center stage.",
-        "love": "Romantic partnerships flourish. Compromise leads to harmony.",
-        "career": "Collaboration brings success. Team up with colleagues.",
-        "health": "Balance rest and activity. Your kidneys need hydration."
-    },
-    "scorpio": {
-        "today": "Your passion is your power, Scorpio. Channel it wisely and watch magic happen. Deep conversations reveal truths.",
-        "love": "Passionate connections deepen. Vulnerability brings intimacy.",
-        "career": "Your determination overcomes obstacles. Keep pushing forward.",
-        "health": "Regenerative healing possible. Focus on rest and recovery."
-    },
-    "sagittarius": {
-        "today": "Adventure calls, Sagittarius! Step out of your comfort zone today. New experiences bring valuable lessons.",
-        "love": "Exciting romantic possibilities. Be open to unexpected connections.",
-        "career": "Travel or education opportunities arise. Say yes to new challenges.",
-        "health": "Outdoor activities boost mood and vitality. Get moving."
-    },
-    "capricorn": {
-        "today": "Hard work pays off, Capricorn. Keep climbing, success is near. Your discipline inspires others.",
-        "love": "Commitment and loyalty strengthen bonds. Long-term planning benefits relationships.",
-        "career": "Professional recognition and advancement. Your efforts are noticed.",
-        "health": "Bone and joint health focus. Good posture matters."
-    },
-    "aquarius": {
-        "today": "Your unique perspective is needed, Aquarius. Share your ideas freely. Innovation brings excitement.",
-        "love": "Unconventional relationships thrive. Embrace your uniqueness.",
-        "career": "Innovative ideas gain traction. Think outside the box.",
-        "health": "Circulation and nervous system focus. Stay hydrated."
-    },
-    "pisces": {
-        "today": "Trust your dreams today, Pisces. They hold important messages for you. Your creativity flows freely.",
-        "love": "Romantic dreams manifest. Intuition guides your heart.",
-        "career": "Creative projects flourish. Your imagination is your asset.",
-        "health": "Foot and lymphatic system care. Rest and rejuvenate."
+class HoroscopeGenerator:
+    """Generates rich, varied horoscopes without external APIs."""
+    
+    # Planetary rulers for each sign
+    RULERS = {
+        "aries": "Mars", "taurus": "Venus", "gemini": "Mercury",
+        "cancer": "Moon", "leo": "Sun", "virgo": "Mercury",
+        "libra": "Venus", "scorpio": "Pluto", "sagittarius": "Jupiter",
+        "capricorn": "Saturn", "aquarius": "Uranus", "pisces": "Neptune"
     }
-}
+    
+    # Elements
+    ELEMENTS = {
+        "aries": "fire", "leo": "fire", "sagittarius": "fire",
+        "taurus": "earth", "virgo": "earth", "capricorn": "earth",
+        "gemini": "air", "libra": "air", "aquarius": "air",
+        "cancer": "water", "scorpio": "water", "pisces": "water"
+    }
+    
+    # Modalities
+    MODALITIES = {
+        "aries": "cardinal", "cancer": "cardinal", "libra": "cardinal", "capricorn": "cardinal",
+        "taurus": "fixed", "leo": "fixed", "scorpio": "fixed", "aquarius": "fixed",
+        "gemini": "mutable", "virgo": "mutable", "sagittarius": "mutable", "pisces": "mutable"
+    }
+    
+    # Sentence templates for each category (will be combined)
+    LOVE_TEMPLATES = [
+        "Your ruling planet {ruler} aligns favorably with Venus, bringing warmth to your relationships.",
+        "Single? A {adjective} encounter could happen {when}. Coupled? {advice}.",
+        "Emotions run deep today. {advice} to strengthen your bonds.",
+        "The {element} element in your sign makes you especially {trait} in matters of the heart.",
+        "A {modality} energy pushes you to {action} in your love life."
+    ]
+    
+    CAREER_TEMPLATES = [
+        "Professional opportunities arise when {ruler} aspects Jupiter. {advice}",
+        "Your {element} nature helps you {action} at work. Colleagues notice your {trait}.",
+        "A {modality} approach is needed to {action} that project.",
+        "Mercury's position favors {action} and networking. {advice}",
+        "Financial prospects look {adjective} as {ruler} stabilizes."
+    ]
+    
+    HEALTH_TEMPLATES = [
+        "Your vitality is {adjective} today. Focus on {body_part}.",
+        "The {element} element suggests you need {health_advice}.",
+        "Energy levels are {energy} – {action} to maintain balance.",
+        "A {modality} routine will help you {action} your well-being.",
+        "{ruler} influences your {body_part}. Consider {health_advice}."
+    ]
+    
+    # Adjective pools
+    ADJECTIVES = ["exciting", "unexpected", "harmonious", "challenging", "inspiring", "transformative", "gentle", "powerful"]
+    TRAITS = ["charming", "determined", "creative", "analytical", "intuitive", "practical", "adventurous", "loyal"]
+    ACTIONS = ["take the lead", "collaborate", "reflect", "communicate", "plan ahead", "trust your instincts", "step back", "seize opportunities"]
+    ADVICE = ["Be open to change.", "Stay grounded.", "Express your feelings.", "Double-check details.", "Follow your intuition.", "Take calculated risks.", "Nurture your connections."]
+    BODY_PARTS = ["throat", "heart", "digestive system", "nervous system", "joints", "skin", "immune system"]
+    ENERGY_LEVELS = ["high", "moderate", "fluctuating", "grounded", "creative"]
+    HEALTH_ADVICE = ["gentle exercise", "meditation", "hydrate well", "rest", "eat nourishing foods", "stretching"]
+    
+    # Days for temporal variety
+    TIMES = ["in the morning", "during midday", "in the afternoon", "this evening", "late tonight"]
+    
+    @classmethod
+    def generate(cls, sign: str, detailed: bool = False) -> Dict:
+        """Generate a complete horoscope for a sign."""
+        sign = sign.lower()
+        ruler = cls.RULERS.get(sign, "the cosmos")
+        element = cls.ELEMENTS.get(sign, "air")
+        modality = cls.MODALITIES.get(sign, "cardinal")
+        
+        # Seed randomness with date + sign to ensure daily variation but consistency
+        seed = int(datetime.date.today().strftime("%Y%m%d")) + sum(ord(c) for c in sign)
+        rng = random.Random(seed)
+        
+        def pick(pool):
+            return rng.choice(pool)
+        
+        # Build sentences
+        love = pick(cls.LOVE_TEMPLATES).format(
+            ruler=ruler, element=element, modality=modality,
+            adjective=pick(cls.ADJECTIVES), trait=pick(cls.TRAITS),
+            action=pick(cls.ACTIONS), advice=pick(cls.ADVICE), when=pick(cls.TIMES)
+        )
+        career = pick(cls.CAREER_TEMPLATES).format(
+            ruler=ruler, element=element, modality=modality,
+            adjective=pick(cls.ADJECTIVES), trait=pick(cls.TRAITS),
+            action=pick(cls.ACTIONS), advice=pick(cls.ADVICE)
+        )
+        health = pick(cls.HEALTH_TEMPLATES).format(
+            ruler=ruler, element=element, modality=modality,
+            adjective=pick(cls.ADJECTIVES), energy=pick(cls.ENERGY_LEVELS),
+            body_part=pick(cls.BODY_PARTS), health_advice=pick(cls.HEALTH_ADVICE),
+            action=pick(cls.ACTIONS)
+        )
+        
+        # Generate daily overview by combining some of them
+        overview = f"{love} {career} {health}"
+        
+        # Add lucky numbers, color, mood
+        lucky_numbers = [rng.randint(1, 9) for _ in range(3)]
+        colors = ["Red", "Blue", "Green", "Yellow", "Purple", "Orange", "Silver", "Gold"]
+        moods = ["Energetic", "Reflective", "Optimistic", "Calm", "Passionate", "Curious"]
+        
+        return {
+            "overview": overview,
+            "love": love,
+            "career": career,
+            "health": health,
+            "lucky_numbers": lucky_numbers,
+            "lucky_color": pick(colors),
+            "mood": pick(moods),
+            "source": "LunarSigns Astrology Engine"
+        }
 
+# Replace the old get_today_horoscope with this:
 async def get_today_horoscope(sign: str, detailed: bool = False) -> str:
-    """Get horoscope with guaranteed fallback"""
-    sign = sign.lower().strip()
-    
-    # Try API but don't fail if it doesn't work
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(f"https://horoscope-app-api.vercel.app/api/v1/get-horoscope/daily?sign={sign}&day=today")
-            if response.status_code == 200:
-                data = response.json()
-                if "data" in data and "horoscope_data" in data["data"]:
-                    api_text = data["data"]["horoscope_data"]
-                    
-                    if detailed:
-                        sign_data = FALLBACK_HOROSCOPES.get(sign, FALLBACK_HOROSCOPES["aries"])
-                        return (
-                            f"❤️ **Love:** {sign_data['love']}\n\n"
-                            f"💼 **Career:** {sign_data['career']}\n\n"
-                            f"🏥 **Health:** {sign_data['health']}\n\n"
-                            f"📝 **Daily Insight:** {api_text}"
-                        )
-                    else:
-                        return api_text
-    except Exception as e:
-        print(f"API error (using fallback): {e}")
-    
-    # Use guaranteed fallback
-    sign_data = FALLBACK_HOROSCOPES.get(sign, FALLBACK_HOROSCOPES["aries"])
-    
+    """Generate a rich horoscope for the given sign."""
+    data = HoroscopeGenerator.generate(sign, detailed)
     if detailed:
         return (
-            f"❤️ **Love:** {sign_data['love']}\n\n"
-            f"💼 **Career:** {sign_data['career']}\n\n"
-            f"🏥 **Health:** {sign_data['health']}\n\n"
-            f"📝 **Daily Insight:** {sign_data['today']}"
+            f"❤️ **Love:** {data['love']}\n\n"
+            f"💼 **Career:** {data['career']}\n\n"
+            f"🏥 **Health:** {data['health']}\n\n"
+            f"🎨 **Color:** {data['lucky_color']}\n"
+            f"🔢 **Lucky Numbers:** {', '.join(map(str, data['lucky_numbers']))}\n"
+            f"😊 **Mood:** {data['mood']}"
         )
     else:
-        return sign_data['today']
+        return data['overview']
 
 async def get_weekly_horoscope(sign: str, detailed: bool = False) -> str:
-    """Get weekly horoscope from fallback data"""
-    sign = sign.lower().strip()
-    sign_data = FALLBACK_HOROSCOPES.get(sign, FALLBACK_HOROSCOPES["aries"])
-    
+    """Generate a weekly forecast by combining daily variations."""
     if detailed:
-        return (
-            f"**{sign.title()} - Weekly Premium Forecast**\n\n"
-            f"**Monday-Wednesday:** {sign_data['career']}\n\n"
-            f"**Thursday-Friday:** {sign_data['love']}\n\n"
-            f"**Weekend:** {sign_data['health']}\n\n"
-            f"**Career Highlight:** {sign_data['career']}\n"
-            f"**Wellness Focus:** {sign_data['health']}"
-        )
+        days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        forecast = f"**{sign.title()} – Weekly Premium Forecast**\n\n"
+        for day in days[:5]:
+            daily = HoroscopeGenerator.generate(sign, detailed=True)
+            forecast += f"**{day}:** {daily['overview']}\n\n"
+        forecast += f"**Weekend:** Focus on {daily['love']}"
+        return forecast
     else:
-        return (
-            f"**{sign.title()} - Weekly Overview**\n\n"
-            f"{sign_data['today'][:100]}...\n\n"
-            f"_Upgrade to premium for detailed daily breakdowns!_"
-        )
+        # Brief weekly overview
+        overview = HoroscopeGenerator.generate(sign, detailed=False)['overview'][:200]
+        return f"**{sign.title()} – Weekly Overview**\n\n{overview}...\n\n_Upgrade to premium for daily breakdowns!_"
