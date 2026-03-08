@@ -8,7 +8,7 @@ import logging
 import random
 import traceback
 
-# Premium prices in Telegram Stars
+# Premium prices in Telegram Stars - CORRECTED (no multiplication needed)
 PREMIUM_WEEK_STARS = 50
 PREMIUM_MONTH_STARS = 150
 
@@ -56,8 +56,8 @@ async def send_invoice(update: Update, context: ContextTypes.DEFAULT_TYPE, title
         
         # Currency must be XTR for Telegram Stars
         currency = "XTR"
-        # Amount in smallest units: stars * 100
-        prices = [LabeledPrice(title, stars * 100)]
+        # For Telegram Stars, use the exact star amount - NO MULTIPLICATION
+        prices = [LabeledPrice(title, stars)]  # ← FIXED: removed * 100
         
         # Send the invoice using context.bot
         await context.bot.send_invoice(
@@ -97,7 +97,7 @@ async def successful_payment(update: Update, context: ContextTypes.DEFAULT_TYPE)
     try:
         user_id = update.effective_user.id
         payment = update.message.successful_payment
-        stars_spent = payment.total_amount // 100  # Convert back from cents
+        stars_spent = payment.total_amount  # ← FIXED: removed // 100
         payload = payment.invoice_payload
         payment_id = payment.provider_payment_charge_id  # Unique payment ID
 
@@ -155,6 +155,7 @@ async def successful_payment(update: Update, context: ContextTypes.DEFAULT_TYPE)
             "Please contact support with your payment ID."
         )
 
+# The rest of your file (compatibility, my_premium, grant_premium) remains the same
 async def compatibility(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Premium feature: check compatibility between two signs."""
     try:
