@@ -7,34 +7,6 @@ import asyncio
 
 api = get_api()
 
-# Rich tarot interpretations for premium users
-TAROT_INTERPRETATIONS = {
-    "love": [
-        "This card suggests honesty and openness in your relationships today.",
-        "Romantic opportunities may arise unexpectedly. Trust your heart.",
-        "Focus on emotional connection rather than physical attraction.",
-        "A partner may need extra attention and understanding.",
-        "Single? Someone from your past might reappear.",
-        "Communication is key in matters of the heart today."
-    ],
-    "career": [
-        "Professional opportunities require your attention and focus.",
-        "Trust your instincts when making work-related decisions.",
-        "Collaboration with colleagues will prove valuable.",
-        "A creative approach to problems will yield results.",
-        "Financial matters need careful consideration today.",
-        "Leadership opportunities may present themselves."
-    ],
-    "spiritual": [
-        "Take time for reflection and meditation today.",
-        "Trust the journey, even when the path isn't clear.",
-        "Your intuition is especially strong right now.",
-        "Past experiences are preparing you for what's ahead.",
-        "Embrace change as a catalyst for growth.",
-        "Connect with your inner wisdom for guidance."
-    ]
-}
-
 def format_card_name(card_data: dict) -> str:
     """Format card name nicely"""
     name = card_data.get('name', 'Unknown Card')
@@ -52,7 +24,7 @@ def get_card_suit_symbol(suit: str) -> str:
     return symbols.get(suit.lower() if suit else 'major', '🃏')
 
 async def daily_tarot(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Free: one random card with real meaning."""
+    """Free: one random card with ONLY real data from API."""
     try:
         # Send typing action
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
@@ -66,34 +38,41 @@ async def daily_tarot(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         card = cards[0]  # First card from the draw
         
-        # Extract card info
+        # Extract ONLY real data from API
         card_name = card.get('name', 'Unknown')
         suit = card.get('suit', '')
         rank = card.get('rank', '')
         keywords = card.get('keywords', [])
-        keywords_str = ', '.join(keywords) if keywords else 'mystery, wisdom'
+        description = card.get('description', '')  # Some APIs have description
+        fortune_telling = card.get('fortune_telling', [])  # Some APIs have predictions
+        
+        # Format keywords
+        keywords_str = ', '.join(keywords) if keywords else ''
         
         # Get symbol
         symbol = get_card_suit_symbol(suit)
         
-        # Build the message
+        # Build title
         if suit and rank:
-            # Full card with suit and rank
             title = f"{symbol} **{card_name}** ({rank} of {suit.title()})"
         else:
-            # Major Arcana or without suit/rank
-            title = f"{symbol} **{card_name}**"
+            title = f"{symbol} **{card_name}** (Major Arcana)"
         
-        # Add a random insight for context
-        insight = random.choice(TAROT_INTERPRETATIONS['spiritual'])
+        # Build message using ONLY real data
+        text = f"🃏 **Your Tarot Card**\n\n{title}\n\n"
         
-        text = (
-            f"🃏 **Your Real Tarot Card**\n\n"
-            f"{title}\n\n"
-            f"**Keywords:** {keywords_str}\n\n"
-            f"*{insight}*\n\n"
-            f"_⚡ Premium users get full 3-card spreads with /spread_"
-        )
+        if keywords_str:
+            text += f"**Keywords:** {keywords_str}\n\n"
+        
+        # Add description if available
+        if description:
+            text += f"{description}\n\n"
+        
+        # Add fortune telling if available
+        if fortune_telling and len(fortune_telling) > 0:
+            text += f"**Fortune:** {random.choice(fortune_telling)}\n\n"
+        
+        text += "_⚡ Premium users get 3-card spreads with /spread_"
         
         await update.message.reply_markdown(text)
         
@@ -102,14 +81,14 @@ async def daily_tarot(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("The cards are not ready. Please try again later.")
 
 async def three_card_spread(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Premium: past-present-future spread with real cards."""
+    """Premium: past-present-future spread with ONLY real data."""
     try:
         user_id = update.effective_user.id
         if not await is_premium(user_id):
             await update.message.reply_markdown(
                 "🔮 **Premium Feature**\n\n"
-                "Three-card spreads with full interpretations are available for premium users.\n\n"
-                "Upgrade with /buyweek (50⭐) or /buymonth (150⭐) to unlock all tarot spreads!"
+                "Three-card spreads are available for premium users.\n\n"
+                "Upgrade with /buyweek (50⭐) or /buymonth (150⭐)"
             )
             return
 
@@ -133,27 +112,25 @@ async def three_card_spread(update: Update, context: ContextTypes.DEFAULT_TYPE):
             suit = card.get('suit', '')
             rank = card.get('rank', '')
             keywords = card.get('keywords', [])
-            keywords_str = ', '.join(keywords[:2]) if keywords else 'wisdom'
+            description = card.get('description', '')
             
             symbol = get_card_suit_symbol(suit)
             
             if suit and rank:
                 card_display = f"{symbol} **{card_name}** ({rank} of {suit.title()})"
             else:
-                card_display = f"{symbol} **{card_name}**"
+                card_display = f"{symbol} **{card_name}** (Major Arcana)"
             
-            # Position-specific insight
-            if i == 0:  # Past
-                insight = "This energy has shaped your journey so far."
-            elif i == 1:  # Present
-                insight = "This is where you stand right now."
-            else:  # Future
-                insight = "This is the energy approaching you."
+            keywords_str = ', '.join(keywords[:2]) if keywords else ''
             
             text += f"**{positions[i]}:** {card_display}\n"
-            text += f"_{keywords_str}_ – {insight}\n\n"
-        
-        text += "_✨ For deeper interpretations, try the Celtic Cross spread with /celtic_"
+            if keywords_str:
+                text += f"*Keywords:* {keywords_str}\n"
+            if description:
+                # Use first sentence only for brevity in spreads
+                short_desc = description.split('.')[0] + '.'
+                text += f"*{short_desc}*\n"
+            text += "\n"
         
         await update.message.reply_markdown(text)
         
@@ -168,7 +145,7 @@ async def celtic_cross(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not await is_premium(user_id):
             await update.message.reply_markdown(
                 "🔮 **Premium Feature**\n\n"
-                "The Celtic Cross is our most detailed spread, available exclusively for premium users.\n\n"
+                "The Celtic Cross is available for premium users.\n\n"
                 "Upgrade with /buyweek or /buymonth to unlock!"
             )
             return
@@ -178,7 +155,7 @@ async def celtic_cross(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Send typing action
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
         
-        # Draw ten cards for Celtic Cross
+        # Draw ten cards
         cards = await api.draw_tarot_cards(count=10)
         
         if not cards or len(cards) < 10:
@@ -186,34 +163,27 @@ async def celtic_cross(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         
         positions = [
-            "Present", "Challenge", "Past", "Future", "Above (Conscious)",
-            "Below (Subconscious)", "Advice", "External", "Hopes/Fears", "Outcome"
+            "Present", "Challenge", "Past", "Future", "Above",
+            "Below", "Advice", "External", "Hopes/Fears", "Outcome"
         ]
         
         text = f"**🔮 Celtic Cross Spread**\n*Question:* {question}\n\n"
         
-        # Show first 5 cards in detail
-        for i in range(5):
+        for i in range(min(5, len(cards))):
             card = cards[i]
             card_name = card.get('name', 'Unknown')
             suit = card.get('suit', '')
-            rank = card.get('rank', '')
-            keywords = card.get('keywords', [])
-            keywords_str = ', '.join(keywords[:2]) if keywords else ''
             
             symbol = get_card_suit_symbol(suit)
             
-            if suit and rank:
-                card_display = f"{symbol} **{card_name}** ({rank} of {suit.title()})"
+            if suit and card.get('rank'):
+                card_display = f"{symbol} **{card_name}** ({card.get('rank')} of {suit.title()})"
             else:
                 card_display = f"{symbol} **{card_name}**"
             
             text += f"**{positions[i]}:** {card_display}\n"
-            if keywords_str:
-                text += f"_{keywordsstr}_\n"
-            text += "\n"
         
-        text += "_✨ The remaining 5 cards are revealed in the full version._"
+        text += f"\n_✨ Full 10-card reading available in the complete version._"
         
         await update.message.reply_markdown(text)
         
